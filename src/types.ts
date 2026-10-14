@@ -1,0 +1,59 @@
+export type Role = 'passenger' | 'driver';
+
+export type Account = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  password: string;
+  role: Role;
+  vehicleNumber?: string;
+  vehicleModel?: string;
+  verified?: boolean;
+};
+
+export type PublicAccount = Omit<Account, 'password'>;
+
+export type RideStatus =
+  | 'requested'
+  | 'accepted'
+  | 'arriving'
+  | 'ongoing'
+  | 'completed'
+  | 'cancelled';
+
+export type Ride = {
+  id: string;
+  passengerName: string;
+  passengerPhone: string;
+  driverName?: string;
+  driverPhone?: string;
+  vehicleNumber?: string;
+  vehicleModel?: string;
+  pickup: string;
+  drop: string;
+  fare: number;
+  distanceKm: number;
+  minutes: number;
+  status: RideStatus;
+  otp: string;
+  createdAt: string;
+};
+
+export type SignupInput = {
+  name: string;
+  phone: string;
+  email: string;
+  password: string;
+  role: Role;
+  vehicleNumber?: string;
+  vehicleModel?: string;
+};
+
+export type Place = {
+  id: string;
+  name: string;
+  area: string;
+  lat: number;
+  lng: number;
+};
