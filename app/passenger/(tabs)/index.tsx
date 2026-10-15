@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { firstName, formatWhen, greeting, inr, nearbyDrivers, passengerHeadline } from '../../../src/data';
 import { useStore } from '../../../src/store';
 import { colors, shadow } from '../../../src/theme';
-import { AppText, Avatar, CityMap, Wordmark } from '../../../src/ui';
+import { AppText, Avatar, Banner, CityMap, Wordmark } from '../../../src/ui';
 
 const shortcuts: { id: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'lajpat', label: 'Home', icon: 'home-outline' },
@@ -17,12 +18,33 @@ const shortcuts: { id: string; label: string; icon: keyof typeof Ionicons.glyphM
 
 export default function PassengerHome() {
   const router = useRouter();
-  const { user, activePassengerRide } = useStore();
+  const { user, activePassengerRide, refreshRides } = useStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
   if (!user) return null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 28 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              setMessage('');
+              const result = await refreshRides();
+              setRefreshing(false);
+              if (!result.ok) setMessage(result.error);
+            }}
+            colors={[colors.green]}
+            tintColor={colors.green}
+            progressBackgroundColor={colors.white}
+          />
+        }
+        contentContainerStyle={{ padding: 20, paddingBottom: 28 }}
+      >
+        {message ? <Banner message={message} /> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Wordmark size={22} />
           <Pressable accessibilityRole="button" onPress={() => router.push('/passenger/profile')}>

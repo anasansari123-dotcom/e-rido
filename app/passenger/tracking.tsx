@@ -3,10 +3,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { DEMO_DRIVER, firstParam, passengerHeadline, rideSteps } from '../../src/data';
+import { firstParam, formatPhone, formatWhen, passengerHeadline, rideSteps } from '../../src/data';
 import { useStore } from '../../src/store';
 import { colors } from '../../src/theme';
-import { AppText, Avatar, Button, EmptyState, Page, PulseDot, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
+import { AppText, Avatar, Banner, Button, EmptyState, Page, PulseDot, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
 import type { RideStatus } from '../../src/types';
 
 const order: RideStatus[] = ['requested', 'accepted', 'arriving', 'ongoing', 'completed'];
@@ -14,11 +14,17 @@ const order: RideStatus[] = ['requested', 'accepted', 'arriving', 'ongoing', 'co
 export default function TrackingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
-  const { user, rideById, activePassengerRide, cancelRide } = useStore();
+  const { user, rideById, activePassengerRide, cancelRide, refreshRides } = useStore();
   const id = firstParam(params.id);
   const found = id ? rideById(id) : activePassengerRide;
-  const ride = found && user && found.passengerPhone === user.phone ? found : null;
+  const ride =
+    found && user && (found.passengerId === user.id || (!found.passengerId && found.passengerPhone === user.phone))
+      ? found
+      : null;
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
   const canCancel = ride?.status === 'requested' || ride?.status === 'accepted';
 
   if (!ride) {
@@ -35,11 +41,42 @@ export default function TrackingScreen() {
   }
 
   const current = order.indexOf(ride.status);
-  const rating = ride.driverPhone === DEMO_DRIVER.phone ? '4.9' : 'New';
-
   return (
-    <Page bottomInset>
+    <Page
+      bottomInset
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        setMessage('');
+        const result = await refreshRides();
+        setRefreshing(false);
+        if (!result.ok) setMessage(result.error);
+      }}
+    >
       <ScreenHeader title="Trip" subtitle={passengerHeadline(ride.status)} fallback="/passenger" />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          backgroundColor: colors.mint,
+          borderRadius: 14,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          marginBottom: 14,
+        }}
+      >
+        <PulseDot />
+        <View style={{ flex: 1 }}>
+          <AppText size={13} weight="bold" color={colors.greenDark}>
+            Live trip updates
+          </AppText>
+          <AppText size={11} color={colors.inkSoft}>
+            {ride.updatedAt ? `Last update ${formatWhen(ride.updatedAt)}` : 'Connected to your service provider'}
+          </AppText>
+        </View>
+      </View>
+      {message ? <Banner message={message} /> : null}
 
       {ride.status === 'completed' || ride.status === 'cancelled' ? (
         <Surface style={{ alignItems: 'center', marginBottom: 14 }}>
@@ -75,7 +112,7 @@ export default function TrackingScreen() {
                 <AppText weight="semibold">Checking nearby e-rickshaws</AppText>
               </View>
               <AppText size={13} color={colors.muted}>
-                Log out and open the service provider demo to accept this trip.
+                Keep this screen open. Driver details will appear automatically after acceptance.
               </AppText>
             </View>
           ) : null}
@@ -127,14 +164,16 @@ export default function TrackingScreen() {
             <AppText size={13} color={colors.muted}>
               {ride.vehicleModel} · {ride.vehicleNumber}
             </AppText>
+            {ride.driverPhone ? (
+              <AppText size={13} color={colors.green} weight="semibold" style={{ marginTop: 3 }}>
+                {formatPhone(ride.driverPhone)}
+              </AppText>
+            ) : null}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="star" size={14} color={colors.gold} />
-              <AppText weight="bold">{rating}</AppText>
-            </View>
+            <Ionicons name="shield-checkmark" size={20} color={colors.green} />
             <AppText size={12} color={colors.muted}>
-              Provider
+              Verified
             </AppText>
           </View>
         </Surface>
@@ -163,7 +202,22 @@ export default function TrackingScreen() {
               <AppText center weight="semibold">
                 Cancel this ride?
               </AppText>
-              <Button label="Yes, cancel" variant="danger" onPress={() => cancelRide(ride.id)} />
+              <Button
+                label={cancelling ? 'Cancelling…' : 'Yes, cancel'}
+                variant="danger"
+                disabled={cancelling}
+                onPress={async () => {
+                  setCancelling(true);
+                  setMessage('');
+                  const result = await cancelRide(ride.id);
+                  setCancelling(false);
+                  if (!result.ok) {
+                    setMessage(result.error);
+                    return;
+                  }
+                  setConfirming(false);
+                }}
+              />
               <Button label="Keep ride" variant="ghost" onPress={() => setConfirming(false)} />
             </View>
           ) : (

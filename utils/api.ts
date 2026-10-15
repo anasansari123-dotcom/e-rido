@@ -111,8 +111,14 @@ export type ProviderProfile = {
 
 export type BookedRide = {
   id: string;
+  passengerId?: string;
   passengerName: string;
   passengerPhone: string;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  vehicleNumber?: string;
+  vehicleModel?: string;
   pickup: string;
   pickupArea: string;
   pickupLat: number;
@@ -127,6 +133,12 @@ export type BookedRide = {
   status: string;
   otp: string;
   createdAt: string;
+  acceptedAt?: string;
+  arrivedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  updatedAt?: string;
 };
 
 export function createRide(input: {
@@ -153,8 +165,31 @@ export function listOpenRides() {
   return apiRequest<{ rides: BookedRide[] }>('/rides/open', { auth: true });
 }
 
+export function listMyRides() {
+  return apiRequest<{ rides: BookedRide[] }>('/rides/mine', { auth: true });
+}
+
+export function getRide(id: string) {
+  return apiRequest<{ ride: BookedRide }>(`/rides/${id}`, { auth: true });
+}
+
 export function acceptOpenRide(id: string) {
   return apiRequest<{ ride: BookedRide }>(`/rides/${id}/accept`, { method: 'POST', auth: true });
+}
+
+export function advanceServerRide(id: string, otp?: string) {
+  return apiRequest<{ ride: BookedRide }>(`/rides/${id}/status`, {
+    method: 'PATCH',
+    auth: true,
+    body: otp ? { otp } : {},
+  });
+}
+
+export function cancelServerRide(id: string) {
+  return apiRequest<{ ride: BookedRide }>(`/rides/${id}/cancel`, {
+    method: 'POST',
+    auth: true,
+  });
 }
 
 export function saveProvider(provider: {

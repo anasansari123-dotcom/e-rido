@@ -1,25 +1,26 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useState } from 'react';
 
-import { driverActionLabel, driverHeadline, firstParam, inr } from '../../src/data';
+import { driverActionLabel, driverHeadline, firstParam, formatPhone, inr } from '../../src/data';
 import { useStore } from '../../src/store';
 import { colors } from '../../src/theme';
-import { AppText, Button, EmptyState, Page, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
+import { AppText, Banner, Button, EmptyState, Field, Page, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
 
 export default function TripScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
-  const { user, rideById, activeDriverRide, advanceRide } = useStore();
+  const { user, rideById, activeDriverRide, advanceRide, refreshRides } = useStore();
   const id = firstParam(params.id);
   const found = id ? rideById(id) : activeDriverRide;
-  const ride = found && user && found.driverPhone === user.phone ? found : null;
+  const ride =
+    found && user && (found.driverId === user.id || (!found.driverId && found.driverPhone === user.phone))
+      ? found
+      : null;
   const [pending, setPending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [message, setMessage] = useState('');
   const action = ride ? driverActionLabel(ride.status) : null;
-
-  useEffect(() => {
-    setPending(false);
-  }, [ride?.status]);
 
   if (!ride) {
     return (
@@ -33,14 +34,29 @@ export default function TripScreen() {
   return (
     <Page
       bottomInset={!action && ride.status !== 'completed'}
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        setMessage('');
+        const result = await refreshRides();
+        setRefreshing(false);
+        if (!result.ok) setMessage(result.error);
+      }}
       footer={
         action ? (
           <Button
             label={action}
             disabled={pending}
-            onPress={() => {
+            onPress={async () => {
+              if (ride.status === 'arriving' && otp.length !== 4) {
+                setMessage('Enter the 4-digit OTP from the passenger.');
+                return;
+              }
               setPending(true);
-              advanceRide(ride.id);
+              setMessage('');
+              const result = await advanceRide(ride.id, ride.status === 'arriving' ? otp : undefined);
+              setPending(false);
+              if (!result.ok) setMessage(result.error);
             }}
           />
         ) : ride.status === 'completed' ? (
@@ -49,6 +65,7 @@ export default function TripScreen() {
       }
     >
       <ScreenHeader title={ride.passengerName} subtitle={driverHeadline(ride.status)} fallback="/driver" />
+      {message ? <Banner message={message} /> : null}
       <Surface style={{ marginBottom: 14 }}>
         <AppText size={12} color={colors.muted}>
           Passenger
@@ -57,17 +74,27 @@ export default function TripScreen() {
           {ride.passengerName}
         </AppText>
         <AppText color={colors.muted} style={{ marginTop: 4 }}>
-          Ask for the OTP before you start the ride.
+          {ride.passengerPhone ? formatPhone(ride.passengerPhone) : 'Phone not provided'}
         </AppText>
       </Surface>
-      <View style={{ backgroundColor: colors.goldSoft, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 14 }}>
-        <AppText size={12} weight="bold" color="#8A6410">
-          TRIP OTP
-        </AppText>
-        <AppText size={32} weight="extra" style={{ letterSpacing: 6, marginTop: 4 }}>
-          {ride.otp}
-        </AppText>
-      </View>
+      {ride.status === 'arriving' ? (
+        <Surface style={{ marginBottom: 14 }}>
+          <AppText weight="bold" style={{ marginBottom: 4 }}>
+            Verify passenger
+          </AppText>
+          <AppText size={13} color={colors.muted} style={{ marginBottom: 12 }}>
+            Ask the passenger for their 4-digit trip OTP before starting.
+          </AppText>
+          <Field
+            label="Trip OTP"
+            value={otp}
+            onChangeText={(value) => setOtp(value.replace(/\D/g, ''))}
+            placeholder="4-digit code"
+            keyboardType="number-pad"
+            maxLength={4}
+          />
+        </Surface>
+      ) : null}
       <RouteSummary ride={ride} />
       {ride.status === 'completed' ? (
         <AppText center color={colors.muted} style={{ marginTop: 14 }}>

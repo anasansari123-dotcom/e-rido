@@ -27,9 +27,12 @@ export default function BookScreen() {
   useEffect(() => {
     const match = places.find((place) => place.id === firstParam(params.drop));
     if (!match) return;
-    setDrop(match);
-    setDropText(match.name);
-    setActive(null);
+    const timer = setTimeout(() => {
+      setDrop(match);
+      setDropText(match.name);
+      setActive(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [params.drop]);
 
   const samePlace = Boolean(pickup && drop && pickup.id === drop.id);

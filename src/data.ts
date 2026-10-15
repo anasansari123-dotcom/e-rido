@@ -206,7 +206,7 @@ export function createSeedRides(): Ride[] {
     vehicleModel: DEMO_DRIVER.vehicleModel,
   };
 
-  const drafts: Array<{
+  const drafts: {
     daysAgo: number;
     hour: number;
     passengerName: string;
@@ -217,7 +217,7 @@ export function createSeedRides(): Ride[] {
     distanceKm: number;
     minutes: number;
     status: RideStatus;
-  }> = [
+  }[] = [
     { daysAgo: 0, hour: 8, passengerName: 'Aisha Khan', passengerPhone: DEMO_PASSENGER.phone, pickup: 'Connaught Place', drop: 'India Gate', fare: 68, distanceKm: 2.6, minutes: 14, status: 'completed' },
     { daysAgo: 0, hour: 11, passengerName: 'Neha Gupta', passengerPhone: '9810011100', pickup: 'Lajpat Nagar', drop: 'AIIMS', fare: 54, distanceKm: 2.2, minutes: 12, status: 'completed' },
     { daysAgo: 1, hour: 9, passengerName: 'Aisha Khan', passengerPhone: DEMO_PASSENGER.phone, pickup: 'Khan Market', drop: 'Nehru Place', fare: 92, distanceKm: 5.4, minutes: 26, status: 'completed' },

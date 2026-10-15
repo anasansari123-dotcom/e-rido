@@ -270,7 +270,52 @@ app.get('/rides/open', requireUser, async (req: AuthedRequest, res) => {
     res.status(503).json({ error: tableSaveError('rides', error.message, error.code) });
     return;
   }
-  res.json({ rides: (data ?? []).map(toRide) });
+  res.json({ rides: (data ?? []).map((row) => toRide(row, false)) });
+});
+
+app.get('/rides/mine', requireUser, async (req: AuthedRequest, res) => {
+  const user = req.authUser;
+  const token = req.accessToken;
+  if (!user || !token) {
+    res.status(401).json({ error: 'Sign in required.' });
+    return;
+  }
+  const column = isDriver(user) ? 'driver_id' : 'passenger_id';
+  const { data, error } = await userClient(token)
+    .from('rides')
+    .select(rideColumns)
+    .eq(column, user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    res.status(503).json({ error: tableSaveError('rides', error.message, error.code) });
+    return;
+  }
+  res.json({ rides: (data ?? []).map((row) => toRide(row, !isDriver(user))) });
+});
+
+app.get('/rides/:id', requireUser, async (req: AuthedRequest, res) => {
+  const user = req.authUser;
+  const token = req.accessToken;
+  const id = req.params.id;
+  if (!user || !token || typeof id !== 'string') {
+    res.status(401).json({ error: 'Sign in required.' });
+    return;
+  }
+  const { data, error } = await userClient(token)
+    .from('rides')
+    .select(rideColumns)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    res.status(503).json({ error: tableSaveError('rides', error.message, error.code) });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: 'Ride not found.' });
+    return;
+  }
+  res.json({ ride: toRide(data, !isDriver(user)) });
 });
 
 app.post('/rides/:id/accept', requireUser, async (req: AuthedRequest, res) => {
@@ -285,11 +330,36 @@ app.post('/rides/:id/accept', requireUser, async (req: AuthedRequest, res) => {
     res.status(403).json({ error: 'You are not authorized.' });
     return;
   }
+  const { data: provider } = await userClient(token)
+    .from('providers')
+    .select('name, phone, vehicle_number, vehicle_model')
+    .eq('id', user.id)
+    .maybeSingle();
+  const metadata = user.user_metadata ?? {};
+  const driverName = cleanText(provider?.name) || cleanText(metadata.name) || 'Service provider';
+  const driverPhone = cleanText(provider?.phone) || cleanText(metadata.phone);
+  const vehicleNumber = cleanText(provider?.vehicle_number) || cleanText(metadata.vehicle_number);
+  const vehicleModel = cleanText(provider?.vehicle_model) || cleanText(metadata.vehicle_model) || 'E-Rickshaw';
+  if (!vehicleNumber) {
+    res.status(400).json({ error: 'Add your vehicle number before accepting rides.' });
+    return;
+  }
+  const now = new Date().toISOString();
   const { data, error } = await userClient(token)
     .from('rides')
-    .update({ driver_id: user.id, status: 'accepted' })
+    .update({
+      driver_id: user.id,
+      driver_name: driverName,
+      driver_phone: driverPhone,
+      vehicle_number: vehicleNumber,
+      vehicle_model: vehicleModel,
+      status: 'accepted',
+      accepted_at: now,
+      updated_at: now,
+    })
     .eq('id', id)
     .eq('status', 'requested')
+    .is('driver_id', null)
     .select(rideColumns)
     .maybeSingle();
   if (error) {
@@ -300,11 +370,105 @@ app.post('/rides/:id/accept', requireUser, async (req: AuthedRequest, res) => {
     res.status(409).json({ error: 'This request is no longer available.' });
     return;
   }
-  res.json({ ride: toRide(data) });
+  res.json({ ride: toRide(data, false) });
+});
+
+app.patch('/rides/:id/status', requireUser, async (req: AuthedRequest, res) => {
+  const user = req.authUser;
+  const token = req.accessToken;
+  const id = req.params.id;
+  if (!user || !token || typeof id !== 'string') {
+    res.status(401).json({ error: 'Sign in required.' });
+    return;
+  }
+  if (!isDriver(user)) {
+    res.status(403).json({ error: 'You are not authorized.' });
+    return;
+  }
+  const { data: current, error: readError } = await userClient(token)
+    .from('rides')
+    .select('id, status, otp')
+    .eq('id', id)
+    .eq('driver_id', user.id)
+    .maybeSingle();
+  if (readError) {
+    res.status(503).json({ error: tableSaveError('rides', readError.message, readError.code) });
+    return;
+  }
+  if (!current) {
+    res.status(404).json({ error: 'Ride not found.' });
+    return;
+  }
+  const transitions: Record<string, string> = {
+    accepted: 'arriving',
+    arriving: 'ongoing',
+    ongoing: 'completed',
+  };
+  const nextStatus = transitions[current.status];
+  if (!nextStatus) {
+    res.status(409).json({ error: 'This ride cannot be updated.' });
+    return;
+  }
+  if (nextStatus === 'ongoing' && cleanText(req.body?.otp) !== current.otp) {
+    res.status(400).json({ error: 'The trip OTP is incorrect.' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const timestampColumn =
+    nextStatus === 'arriving' ? 'arrived_at' : nextStatus === 'ongoing' ? 'started_at' : 'completed_at';
+  const { data, error } = await userClient(token)
+    .from('rides')
+    .update({ status: nextStatus, [timestampColumn]: now, updated_at: now })
+    .eq('id', id)
+    .eq('driver_id', user.id)
+    .eq('status', current.status)
+    .select(rideColumns)
+    .maybeSingle();
+  if (error) {
+    res.status(503).json({ error: tableSaveError('rides', error.message, error.code) });
+    return;
+  }
+  if (!data) {
+    res.status(409).json({ error: 'The ride changed. Refresh and try again.' });
+    return;
+  }
+  res.json({ ride: toRide(data, false) });
+});
+
+app.post('/rides/:id/cancel', requireUser, async (req: AuthedRequest, res) => {
+  const user = req.authUser;
+  const token = req.accessToken;
+  const id = req.params.id;
+  if (!user || !token || typeof id !== 'string') {
+    res.status(401).json({ error: 'Sign in required.' });
+    return;
+  }
+  if (isDriver(user)) {
+    res.status(403).json({ error: 'You are not authorized.' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await userClient(token)
+    .from('rides')
+    .update({ status: 'cancelled', cancelled_at: now, updated_at: now })
+    .eq('id', id)
+    .eq('passenger_id', user.id)
+    .in('status', ['requested', 'accepted'])
+    .select(rideColumns)
+    .maybeSingle();
+  if (error) {
+    res.status(503).json({ error: tableSaveError('rides', error.message, error.code) });
+    return;
+  }
+  if (!data) {
+    res.status(409).json({ error: 'This ride can no longer be cancelled.' });
+    return;
+  }
+  res.json({ ride: toRide(data, true) });
 });
 
 const rideColumns =
-  'id, passenger_name, passenger_phone, pickup, pickup_area, pickup_lat, pickup_lng, dropoff, drop_area, drop_lat, drop_lng, fare, distance_km, minutes, status, otp, created_at';
+  'id, passenger_id, passenger_name, passenger_phone, driver_id, driver_name, driver_phone, vehicle_number, vehicle_model, pickup, pickup_area, pickup_lat, pickup_lng, dropoff, drop_area, drop_lat, drop_lng, fare, distance_km, minutes, status, otp, created_at, accepted_at, arrived_at, started_at, completed_at, cancelled_at, updated_at';
 
 function readNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number(value);
@@ -322,11 +486,17 @@ function readStop(body: unknown, key: 'pickup' | 'drop') {
   return { name, area, lat, lng };
 }
 
-function toRide(row: Record<string, unknown>) {
+function toRide(row: Record<string, unknown>, includeOtp = true) {
   return {
     id: row.id,
+    passengerId: row.passenger_id,
     passengerName: row.passenger_name,
     passengerPhone: row.passenger_phone,
+    driverId: row.driver_id,
+    driverName: row.driver_name,
+    driverPhone: row.driver_phone,
+    vehicleNumber: row.vehicle_number,
+    vehicleModel: row.vehicle_model,
     pickup: row.pickup,
     pickupArea: row.pickup_area,
     pickupLat: row.pickup_lat,
@@ -339,8 +509,14 @@ function toRide(row: Record<string, unknown>) {
     distanceKm: Number(row.distance_km),
     minutes: row.minutes,
     status: row.status,
-    otp: row.otp,
+    otp: includeOtp ? row.otp : '',
     createdAt: row.created_at,
+    acceptedAt: row.accepted_at,
+    arrivedAt: row.arrived_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    cancelledAt: row.cancelled_at,
+    updatedAt: row.updated_at,
   };
 }
 

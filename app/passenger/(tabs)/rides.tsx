@@ -1,25 +1,38 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import { isPassengerOpen } from '../../../src/data';
 import { useStore } from '../../../src/store';
 import { colors } from '../../../src/theme';
-import { AppText, Button, EmptyState, Page, RideRow } from '../../../src/ui';
+import { AppText, Banner, Button, EmptyState, Page, RideRow } from '../../../src/ui';
 
 export default function PassengerRides() {
   const router = useRouter();
-  const { passengerRides } = useStore();
+  const { passengerRides, refreshRides } = useStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
   const active = passengerRides.filter((ride) => isPassengerOpen(ride.status));
   const past = passengerRides.filter((ride) => !isPassengerOpen(ride.status));
 
   return (
-    <Page>
+    <Page
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        setMessage('');
+        const result = await refreshRides();
+        setRefreshing(false);
+        if (!result.ok) setMessage(result.error);
+      }}
+    >
       <AppText size={30} weight="extra">
         Your rides
       </AppText>
       <AppText color={colors.muted} style={{ marginTop: 4, marginBottom: 18 }}>
         Active trips and earlier e-rickshaw rides.
       </AppText>
+      {message ? <Banner message={message} /> : null}
       {passengerRides.length === 0 ? (
         <EmptyState
           title="No rides yet"

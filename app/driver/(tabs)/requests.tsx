@@ -9,8 +9,9 @@ import { AppText, Banner, Button, EmptyState, Page, Surface } from '../../../src
 
 export default function RequestsScreen() {
   const router = useRouter();
-  const { incoming, online, setOnline, activeDriverRide, acceptRide, declineRide } = useStore();
+  const { incoming, online, setOnline, activeDriverRide, acceptRide, declineRide, refreshRides } = useStore();
   const [message, setMessage] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   async function onAccept(id: string) {
     const ok = await acceptRide(id);
@@ -22,7 +23,16 @@ export default function RequestsScreen() {
   }
 
   return (
-    <Page>
+    <Page
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        setMessage('');
+        const result = await refreshRides();
+        setRefreshing(false);
+        if (!result.ok) setMessage(result.error);
+      }}
+    >
       <AppText size={30} weight="extra">
         Requests
       </AppText>

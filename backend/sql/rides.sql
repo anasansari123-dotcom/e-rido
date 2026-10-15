@@ -20,6 +20,27 @@ create table if not exists public.rides (
   created_at timestamptz not null default now()
 );
 
+alter table public.rides
+  add column if not exists driver_name text,
+  add column if not exists driver_phone text,
+  add column if not exists vehicle_number text,
+  add column if not exists vehicle_model text,
+  add column if not exists accepted_at timestamptz,
+  add column if not exists arrived_at timestamptz,
+  add column if not exists started_at timestamptz,
+  add column if not exists completed_at timestamptz,
+  add column if not exists cancelled_at timestamptz,
+  add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists rides_status_created_at_idx
+  on public.rides (status, created_at);
+
+create index if not exists rides_passenger_id_created_at_idx
+  on public.rides (passenger_id, created_at desc);
+
+create index if not exists rides_driver_id_created_at_idx
+  on public.rides (driver_id, created_at desc);
+
 alter table public.rides enable row level security;
 
 drop policy if exists "rides read own or open" on public.rides;
@@ -55,3 +76,18 @@ create policy "rides driver accepts open"
   to authenticated
   using (status = 'requested' and driver_id is null)
   with check (driver_id = auth.uid());
+
+drop policy if exists "rides driver updates own" on public.rides;
+create policy "rides driver updates own"
+  on public.rides
+  for update
+  to authenticated
+  using (driver_id = auth.uid())
+  with check (driver_id = auth.uid());
+
+do $$
+begin
+  alter publication supabase_realtime add table public.rides;
+exception
+  when duplicate_object then null;
+end $$;

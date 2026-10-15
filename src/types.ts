@@ -24,8 +24,10 @@ export type RideStatus =
 
 export type Ride = {
   id: string;
+  passengerId?: string;
   passengerName: string;
   passengerPhone: string;
+  driverId?: string;
   driverName?: string;
   driverPhone?: string;
   vehicleNumber?: string;
@@ -44,6 +46,12 @@ export type Ride = {
   status: RideStatus;
   otp: string;
   createdAt: string;
+  acceptedAt?: string;
+  arrivedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  updatedAt?: string;
 };
 
 export type SignupInput = {

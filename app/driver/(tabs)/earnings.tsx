@@ -4,11 +4,13 @@ import { Pressable, View } from 'react-native';
 import { inr } from '../../../src/data';
 import { useStore } from '../../../src/store';
 import { colors } from '../../../src/theme';
-import { AppText, Page, RideRow } from '../../../src/ui';
+import { AppText, Banner, Page, RideRow } from '../../../src/ui';
 
 export default function EarningsScreen() {
-  const { driverRides } = useStore();
+  const { driverRides, refreshRides } = useStore();
   const [period, setPeriod] = useState<'today' | 'week'>('today');
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
   const completed = driverRides.filter((ride) => ride.status === 'completed');
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 6);
@@ -33,13 +35,23 @@ export default function EarningsScreen() {
   const max = Math.max(...days.map((day) => day.amount), 1);
 
   return (
-    <Page>
+    <Page
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        setMessage('');
+        const result = await refreshRides();
+        setRefreshing(false);
+        if (!result.ok) setMessage(result.error);
+      }}
+    >
       <AppText size={30} weight="extra">
         Earnings
       </AppText>
       <AppText color={colors.muted} style={{ marginTop: 4, marginBottom: 18 }}>
         Cash collected from completed e-rickshaw trips.
       </AppText>
+      {message ? <Banner message={message} /> : null}
 
       <View style={{ flexDirection: 'row', backgroundColor: colors.white, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: colors.line }}>
         {(['today', 'week'] as const).map((item) => {

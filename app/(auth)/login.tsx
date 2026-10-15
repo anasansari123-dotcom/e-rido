@@ -25,12 +25,15 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setEmail('');
-    setPassword('');
-    setCode('');
-    setCodeSent(false);
-    setNotice('');
-    setError('');
+    const timer = setTimeout(() => {
+      setEmail('');
+      setPassword('');
+      setCode('');
+      setCodeSent(false);
+      setNotice('');
+      setError('');
+    }, 0);
+    return () => clearTimeout(timer);
   }, [role]);
 
   if (!role) return <Redirect href={{ pathname: '/role', params: { intent: 'login' } }} />;

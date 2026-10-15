@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { firstName, greeting, inr, statusMeta } from '../../../src/data';
 import { useStore } from '../../../src/store';
 import { colors, shadow } from '../../../src/theme';
-import { AppText, CityMap, Wordmark } from '../../../src/ui';
+import { AppText, Banner, CityMap, Wordmark } from '../../../src/ui';
 
 export default function DriverHome() {
   const router = useRouter();
-  const { user, online, setOnline, driverRides, activeDriverRide, incoming } = useStore();
+  const { user, online, setOnline, driverRides, activeDriverRide, incoming, refreshRides } = useStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
   if (!user) return null;
 
   const today = driverRides.filter(
@@ -25,7 +28,26 @@ export default function DriverHome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 28 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              setMessage('');
+              const result = await refreshRides();
+              setRefreshing(false);
+              if (!result.ok) setMessage(result.error);
+            }}
+            colors={[colors.green]}
+            tintColor={colors.green}
+            progressBackgroundColor={colors.white}
+          />
+        }
+        contentContainerStyle={{ padding: 20, paddingBottom: 28 }}
+      >
+        {message ? <Banner message={message} /> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Wordmark size={22} />
           <View style={{ backgroundColor: user.verified ? colors.mint : colors.goldSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>

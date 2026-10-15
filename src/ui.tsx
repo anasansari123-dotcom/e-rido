@@ -1,11 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -248,10 +249,14 @@ export function Page({
   children,
   footer,
   bottomInset = false,
+  refreshing = false,
+  onRefresh,
 }: {
   children: React.ReactNode;
   footer?: React.ReactNode;
   bottomInset?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const edges = bottomInset
@@ -264,6 +269,17 @@ export function Page({
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.green]}
+                tintColor={colors.green}
+                progressBackgroundColor={colors.white}
+              />
+            ) : undefined
+          }
           contentContainerStyle={{ padding: 20, paddingBottom: footer ? 20 : 28 }}
         >
           {children}
@@ -490,7 +506,7 @@ export function CityMap() {
 }
 
 export function PulseDot({ color = colors.gold }: { color?: string }) {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
