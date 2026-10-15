@@ -64,7 +64,7 @@ export default function PassengerProfile() {
       <Surface>
         <AppText weight="bold">About this demo</AppText>
         <AppText size={13} color={colors.muted} style={{ marginTop: 6 }}>
-          Rides, fares, and accounts stay on this phone. There is no live driver network or payment.
+          Your name, phone, and email are saved to your account. Rides stay on this phone.
         </AppText>
       </Surface>
 

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { acceptOpenRide, createRide, listOpenRides, savePassenger, saveProvider, type BookedRide } from '../utils/api';
 import { supabase } from '../utils/supabase';
 import { createSeedRides, isDriverOpen, isPassengerOpen, normalizePhone, seedAccounts } from './data';
 import type { Account, PublicAccount, Ride, RideStatus, Role, SignupInput } from './types';
@@ -21,6 +22,20 @@ type State = Persisted & { ready: boolean };
 
 type Result = { ok: true } | { ok: false; error: string };
 
+type RideBooking = {
+  pickup: string;
+  pickupArea: string;
+  pickupLat: number;
+  pickupLng: number;
+  drop: string;
+  dropArea: string;
+  dropLat: number;
+  dropLng: number;
+  fare: number;
+  distanceKm: number;
+  minutes: number;
+};
+
 type StoreValue = {
   ready: boolean;
   user: PublicAccount | null;
@@ -36,8 +51,8 @@ type StoreValue = {
   verifyEmailOtp: (email: string, code: string, role: Role) => Promise<Result>;
   signup: (input: SignupInput) => Promise<Result>;
   logout: () => void;
-  bookRide: (input: { pickup: string; drop: string; fare: number; distanceKm: number; minutes: number }) => Ride | null;
-  acceptRide: (id: string) => boolean;
+  bookRide: (input: RideBooking) => Promise<{ ok: true; ride: Ride } | { ok: false; error: string }>;
+  acceptRide: (id: string) => Promise<boolean>;
   declineRide: (id: string) => void;
   advanceRide: (id: string) => void;
   cancelRide: (id: string) => void;
@@ -88,6 +103,28 @@ function profileFromUser(user: User): Account {
   };
 }
 
+function bookedToRide(ride: BookedRide): Ride {
+  return {
+    id: ride.id,
+    passengerName: ride.passengerName,
+    passengerPhone: ride.passengerPhone,
+    pickup: ride.pickup,
+    pickupArea: ride.pickupArea,
+    pickupLat: ride.pickupLat,
+    pickupLng: ride.pickupLng,
+    drop: ride.drop,
+    dropArea: ride.dropArea,
+    dropLat: ride.dropLat,
+    dropLng: ride.dropLng,
+    fare: ride.fare,
+    distanceKm: ride.distanceKm,
+    minutes: ride.minutes,
+    status: ride.status as RideStatus,
+    otp: ride.otp,
+    createdAt: ride.createdAt,
+  };
+}
+
 function upsertAccount(accounts: Account[], account: Account) {
   const index = accounts.findIndex(
     (item) => item.id === account.id || item.email.toLowerCase() === account.email.toLowerCase(),
@@ -124,6 +161,7 @@ function isPersisted(value: unknown): value is Persisted {
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>({ ...fresh(), ready: false });
+  const [openRequests, setOpenRequests] = useState<Ride[]>([]);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -160,6 +198,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           sessionId: account.id,
           ready: true,
         });
+        if (account.role === 'passenger') {
+          savePassenger({ name: account.name, phone: account.phone, email: account.email }).catch(() => {});
+        }
+        if (account.role === 'driver' && account.vehicleNumber) {
+          saveProvider({
+            name: account.name,
+            phone: account.phone,
+            email: account.email,
+            vehicleNumber: account.vehicleNumber,
+            vehicleModel: account.vehicleModel,
+          }).catch(() => {});
+        }
       })
       .catch(() => {
         if (alive) setState({ ...fresh(), ready: true });
@@ -199,12 +249,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const activeDriverRide = driverRides.find((ride) => isDriverOpen(ride.status)) ?? null;
 
   const incoming = useMemo(() => {
-    if (!user || user.role !== 'driver') return [];
+    if (!user || user.role !== 'driver' || !state.online) return [];
     const hidden = new Set(state.dismissed[user.phone] ?? []);
-    return state.rides
+    return openRequests
       .filter((ride) => ride.status === 'requested' && !hidden.has(ride.id))
       .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
-  }, [state.dismissed, state.rides, user]);
+  }, [openRequests, state.dismissed, state.online, user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'driver' || !state.online) return;
+    let stop = false;
+    const load = () => {
+      listOpenRides().then((result) => {
+        if (stop || !result.ok) return;
+        setOpenRequests(result.data.rides.map(bookedToRide));
+      });
+    };
+    load();
+    const timer = setInterval(load, 8000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [state.online, user]);
+
+  const rememberAccount = useCallback(async (account: Account) => {
+    if (account.role === 'passenger') {
+      await savePassenger({ name: account.name, phone: account.phone, email: account.email });
+      return;
+    }
+    if (!account.vehicleNumber) return;
+    await saveProvider({
+      name: account.name,
+      phone: account.phone,
+      email: account.email,
+      vehicleNumber: account.vehicleNumber,
+      vehicleModel: account.vehicleModel,
+    });
+  }, []);
 
   const startSession = useCallback(async (user: User, role: Role): Promise<Result> => {
     const account = profileFromUser(user);
@@ -223,8 +305,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       accounts: upsertAccount(current.accounts, account),
       sessionId: account.id,
     }));
+    await rememberAccount(account);
     return { ok: true };
-  }, []);
+  }, [rememberAccount]);
 
   const login = useCallback(async (email: string, password: string, role: Role): Promise<Result> => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -293,64 +376,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       accounts: upsertAccount(current.accounts, account),
       sessionId: account.id,
     }));
+    await rememberAccount(account);
     return { ok: true };
-  }, []);
+  }, [rememberAccount]);
 
   const logout = useCallback(() => {
     supabase.auth.signOut().catch(() => {});
     setState((current) => ({ ...current, sessionId: null }));
   }, []);
 
-  const bookRide = useCallback(
-    (input: { pickup: string; drop: string; fare: number; distanceKm: number; minutes: number }) => {
-      const session = stateRef.current.accounts.find((item) => item.id === stateRef.current.sessionId);
-      if (!session || session.role !== 'passenger') return null;
-      const alreadyActive = stateRef.current.rides.some(
-        (ride) => ride.passengerPhone === session.phone && isPassengerOpen(ride.status),
-      );
-      if (alreadyActive) return null;
-      const ride: Ride = {
-        id: `ride-${Date.now()}`,
-        passengerName: session.name,
-        passengerPhone: session.phone,
-        pickup: input.pickup,
-        drop: input.drop,
-        fare: input.fare,
-        distanceKm: input.distanceKm,
-        minutes: input.minutes,
-        status: 'requested',
-        otp: String(Math.floor(1000 + Math.random() * 9000)),
-        createdAt: new Date().toISOString(),
-      };
-      setState((current) => ({ ...current, rides: [ride, ...current.rides] }));
-      return ride;
-    },
-    [],
-  );
+  const bookRide = useCallback(async (input: RideBooking) => {
+    const session = stateRef.current.accounts.find((item) => item.id === stateRef.current.sessionId);
+    if (!session || session.role !== 'passenger') {
+      return { ok: false as const, error: 'Sign in as a passenger to book.' };
+    }
+    const alreadyActive = stateRef.current.rides.some(
+      (ride) => ride.passengerPhone === session.phone && isPassengerOpen(ride.status),
+    );
+    if (alreadyActive) return { ok: false as const, error: 'You already have a ride in progress.' };
+    const result = await createRide(input);
+    if (!result.ok) return { ok: false as const, error: result.error };
+    const ride = bookedToRide(result.data.ride);
+    setState((current) => ({ ...current, rides: [ride, ...current.rides] }));
+    return { ok: true as const, ride };
+  }, []);
 
-  const acceptRide = useCallback((id: string) => {
+  const acceptRide = useCallback(async (id: string) => {
     const session = stateRef.current.accounts.find((item) => item.id === stateRef.current.sessionId);
     if (!session || session.role !== 'driver' || !stateRef.current.online) return false;
     const busy = stateRef.current.rides.some(
       (ride) => ride.driverPhone === session.phone && isDriverOpen(ride.status),
     );
-    const target = stateRef.current.rides.find((ride) => ride.id === id && ride.status === 'requested');
-    if (busy || !target) return false;
+    if (busy) return false;
+    const result = await acceptOpenRide(id);
+    if (!result.ok) return false;
+    const ride: Ride = {
+      ...bookedToRide(result.data.ride),
+      status: 'accepted',
+      driverName: session.name,
+      driverPhone: session.phone,
+      vehicleNumber: session.vehicleNumber,
+      vehicleModel: session.vehicleModel ?? 'E-Rickshaw',
+    };
     setState((current) => ({
       ...current,
-      rides: current.rides.map((ride) =>
-        ride.id === id
-          ? {
-              ...ride,
-              status: 'accepted',
-              driverName: session.name,
-              driverPhone: session.phone,
-              vehicleNumber: session.vehicleNumber,
-              vehicleModel: session.vehicleModel ?? 'E-Rickshaw',
-            }
-          : ride,
-      ),
+      rides: [ride, ...current.rides.filter((item) => item.id !== id)],
     }));
+    setOpenRequests((current) => current.filter((item) => item.id !== id));
     return true;
   }, []);
 

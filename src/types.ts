@@ -31,7 +31,13 @@ export type Ride = {
   vehicleNumber?: string;
   vehicleModel?: string;
   pickup: string;
+  pickupArea?: string;
+  pickupLat?: number;
+  pickupLng?: number;
   drop: string;
+  dropArea?: string;
+  dropLat?: number;
+  dropLng?: number;
   fare: number;
   distanceKm: number;
   minutes: number;

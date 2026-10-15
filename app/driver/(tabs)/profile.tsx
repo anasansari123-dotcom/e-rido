@@ -41,7 +41,7 @@ export default function DriverProfile() {
       <Surface>
         <AppText weight="bold">About this demo</AppText>
         <AppText size={13} color={colors.muted} style={{ marginTop: 6 }}>
-          Requests and earnings are sample data on this device. Accepting a trip does not contact a real passenger.
+          Your name, phone, email, and vehicle are saved to your account. Requests and earnings stay on this phone.
         </AppText>
       </Surface>
 

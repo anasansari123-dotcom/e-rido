@@ -14,6 +14,7 @@ import { Platform, Text, useWindowDimensions, View } from 'react-native';
 import { StoreProvider, useStore } from '../src/store';
 import { colors } from '../src/theme';
 import { Mark } from '../src/ui';
+import { supabaseConfigError } from '../utils/supabase';
 
 function Boot() {
   return (
@@ -75,6 +76,16 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
+
+  if (supabaseConfigError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
+          {supabaseConfigError}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: Platform.OS === 'web' ? '#07140F' : colors.paper }}>

@@ -88,22 +88,28 @@ export default function BookScreen() {
     setDropText(pickup?.name ?? '');
   }
 
-  function confirm() {
+  async function confirm() {
     if (!quote || !pickup || !drop || submitting) return;
     setSubmitting(true);
-    const ride = bookRide({
+    const result = await bookRide({
       pickup: pickup.name,
+      pickupArea: pickup.area,
+      pickupLat: pickup.lat,
+      pickupLng: pickup.lng,
       drop: drop.name,
+      dropArea: drop.area,
+      dropLat: drop.lat,
+      dropLng: drop.lng,
       fare: quote.fare,
       distanceKm: quote.distanceKm,
       minutes: quote.minutes,
     });
-    if (!ride) {
-      setSubmitting(false);
-      setMessage('You already have a ride in progress.');
+    setSubmitting(false);
+    if (!result.ok) {
+      setMessage(result.error);
       return;
     }
-    router.replace({ pathname: '/passenger/tracking', params: { id: ride.id } });
+    router.replace({ pathname: '/passenger/tracking', params: { id: result.ride.id } });
   }
 
   return (

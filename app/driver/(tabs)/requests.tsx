@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { formatWhen, inr } from '../../../src/data';
+import { formatPhone, formatWhen, inr } from '../../../src/data';
 import { useStore } from '../../../src/store';
 import { colors } from '../../../src/theme';
 import { AppText, Banner, Button, EmptyState, Page, Surface } from '../../../src/ui';
@@ -12,10 +12,10 @@ export default function RequestsScreen() {
   const { incoming, online, setOnline, activeDriverRide, acceptRide, declineRide } = useStore();
   const [message, setMessage] = useState('');
 
-  function onAccept(id: string) {
-    const ok = acceptRide(id);
+  async function onAccept(id: string) {
+    const ok = await acceptRide(id);
     if (!ok) {
-      setMessage(online ? 'Finish your current trip before accepting another.' : 'Go online to accept rides.');
+      setMessage(online ? 'That request is no longer available.' : 'Go online to accept rides.');
       return;
     }
     router.push({ pathname: '/driver/trip', params: { id } });
@@ -47,7 +47,7 @@ export default function RequestsScreen() {
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <AppText weight="bold">{ride.passengerName}</AppText>
                   <AppText size={12} color={colors.muted}>
-                    {formatWhen(ride.createdAt)}
+                    {ride.passengerPhone ? formatPhone(ride.passengerPhone) : 'Phone not added'} · {formatWhen(ride.createdAt)}
                   </AppText>
                 </View>
                 <AppText size={22} weight="extra">
@@ -57,11 +57,21 @@ export default function RequestsScreen() {
               <View style={{ marginTop: 14, gap: 8 }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 6 }} />
-                  <AppText style={{ flex: 1 }}>{ride.pickup}</AppText>
+                  <View style={{ flex: 1 }}>
+                    <AppText>{ride.pickup}</AppText>
+                    <AppText size={12} color={colors.muted}>
+                      {ride.pickupArea || 'Pickup'}{ride.pickupLat !== undefined && ride.pickupLng !== undefined ? ` · ${ride.pickupLat.toFixed(4)}, ${ride.pickupLng.toFixed(4)}` : ''}
+                    </AppText>
+                  </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.gold, marginTop: 6 }} />
-                  <AppText style={{ flex: 1 }}>{ride.drop}</AppText>
+                  <View style={{ flex: 1 }}>
+                    <AppText>{ride.drop}</AppText>
+                    <AppText size={12} color={colors.muted}>
+                      {ride.dropArea || 'Drop'}{ride.dropLat !== undefined && ride.dropLng !== undefined ? ` · ${ride.dropLat.toFixed(4)}, ${ride.dropLng.toFixed(4)}` : ''}
+                    </AppText>
+                  </View>
                 </View>
               </View>
               <AppText size={13} color={colors.muted} style={{ marginTop: 10, marginBottom: 14 }}>
