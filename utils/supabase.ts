@@ -5,7 +5,9 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
 export const supabaseConfigError =
-  supabaseUrl && supabaseKey ? null : 'This build is missing the Supabase URL or publishable key.';
+  supabaseUrl && supabaseKey
+    ? null
+    : 'MTUK Nagar Ride is not set up correctly. Please update the app or try again later.';
 
 export const supabase = createClient(supabaseUrl ?? 'https://example.supabase.co', supabaseKey ?? 'missing-publishable-key', {
   auth: {

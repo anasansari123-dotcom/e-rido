@@ -1,39 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
 import { useStore } from '../../../src/store';
-import { colors, font } from '../../../src/theme';
+import { useTabOptions } from '../../../src/tab-options';
+import { colors } from '../../../src/theme';
+import { TabItem } from '../../../src/ui';
 
 export default function DriverTabs() {
   const { incoming, online } = useStore();
+  const screenOptions = useTabOptions();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.green,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarAllowFontScaling: false,
-        sceneStyle: { backgroundColor: colors.paper },
-        tabBarStyle: {
-          backgroundColor: colors.white,
-          borderTopColor: colors.line,
-          borderTopWidth: 1,
-          paddingTop: 4,
-          paddingBottom: 6,
-        },
-        tabBarLabelStyle: {
-          fontFamily: font.semibold,
-          fontSize: 11,
-        },
-      }}
-    >
+    <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'speedometer' : 'speedometer-outline'} color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabItem
+              icon="speedometer-outline"
+              activeIcon="speedometer"
+              label="Home"
+              color={color}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -43,8 +32,8 @@ export default function DriverTabs() {
           title: 'Requests',
           tabBarBadge: online && incoming.length > 0 ? incoming.length : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.gold, color: colors.greenDeep },
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'list' : 'list-outline'} color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabItem icon="list-outline" activeIcon="list" label="Requests" color={color} focused={focused} />
           ),
         }}
       />
@@ -52,8 +41,8 @@ export default function DriverTabs() {
         name="earnings"
         options={{
           title: 'Earnings',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabItem icon="wallet-outline" activeIcon="wallet" label="Earnings" color={color} focused={focused} />
           ),
         }}
       />
@@ -61,8 +50,8 @@ export default function DriverTabs() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabItem icon="person-outline" activeIcon="person" label="Profile" color={color} focused={focused} />
           ),
         }}
       />

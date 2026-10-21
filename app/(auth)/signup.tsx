@@ -110,10 +110,7 @@ export default function SignupScreen() {
           />
         </Surface>
       ) : null}
-      <Button label={submitting ? 'Creating account' : 'Create account'} onPress={submit} disabled={submitting} />
-      <AppText center size={12} color={colors.muted} style={{ marginTop: 12 }}>
-        Your account is saved in Supabase.
-      </AppText>
+      <Button label={submitting ? 'Creating account…' : 'Create account'} onPress={submit} loading={submitting} />
       <Pressable accessibilityRole="button" onPress={() => router.replace({ pathname: '/login', params: { role } })} style={{ marginTop: 16 }}>
         <AppText center color={colors.inkSoft}>
           Already registered? <AppText weight="bold" color={colors.green}>Sign in</AppText>

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { Place } from '../src/types';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ?? '';
 
@@ -81,6 +82,61 @@ export function checkApiHealth() {
   return apiRequest<{ status: string }>('/health');
 }
 
+export type PlaceSuggestion = {
+  id: string;
+  placeId: string;
+  name: string;
+  area: string;
+};
+
+export type RouteQuote = {
+  distanceKm: number;
+  minutes: number;
+  fare: number;
+  polyline: string;
+  source: 'route' | 'estimate';
+};
+
+// One token per search session: Google bills the typed autocomplete requests as a single
+// free session when it ends with getPlaceDetails using the same token.
+export function newPlacesSession() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    return (char === 'x' ? random : (random & 0x3) | 0x8).toString(16);
+  });
+}
+
+export function searchRealPlaces(query: string, session: string, near?: { lat: number; lng: number }) {
+  const params = new URLSearchParams({ query, session });
+  if (near) {
+    params.set('lat', String(near.lat));
+    params.set('lng', String(near.lng));
+  }
+  return apiRequest<{ suggestions: PlaceSuggestion[] }>(`/maps/places?${params.toString()}`, { auth: true });
+}
+
+export async function getPlaceDetails(suggestion: PlaceSuggestion, session: string): Promise<ApiResult<Place>> {
+  const result = await apiRequest<{ place: { id: string; area: string; lat: number; lng: number } }>(
+    `/maps/places/${encodeURIComponent(suggestion.placeId)}?session=${encodeURIComponent(session)}`,
+    { auth: true },
+  );
+  if (!result.ok) return result;
+  const { place } = result.data;
+  return {
+    ok: true,
+    status: result.status,
+    data: { id: place.id, name: suggestion.name, area: suggestion.area || place.area, lat: place.lat, lng: place.lng },
+  };
+}
+
+export function getRouteQuote(pickup: Place, drop: Place) {
+  return apiRequest<{ quote: RouteQuote }>('/maps/quote', {
+    method: 'POST',
+    auth: true,
+    body: { pickupLat: pickup.lat, pickupLng: pickup.lng, dropLat: drop.lat, dropLng: drop.lng },
+  });
+}
+
 export type PassengerProfile = {
   id: string;
   name: string;
@@ -107,7 +163,12 @@ export type ProviderProfile = {
   email: string;
   vehicle_number: string;
   vehicle_model: string;
+  verification_status?: string;
 };
+
+export function getProvider() {
+  return apiRequest<{ provider: ProviderProfile | null }>('/providers/me', { auth: true });
+}
 
 export type BookedRide = {
   id: string;
@@ -150,10 +211,8 @@ export function createRide(input: {
   dropArea: string;
   dropLat: number;
   dropLng: number;
-  fare: number;
-  distanceKm: number;
-  minutes: number;
 }) {
+  // The server prices the ride from the route; the app never sends a fare.
   return apiRequest<{ ride: BookedRide }>('/rides', {
     method: 'POST',
     auth: true,

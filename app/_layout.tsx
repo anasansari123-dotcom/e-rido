@@ -13,14 +13,13 @@ import { Platform, Text, useWindowDimensions, View } from 'react-native';
 
 import { StoreProvider, useStore } from '../src/store';
 import { colors } from '../src/theme';
-import { Mark } from '../src/ui';
+import { Wordmark } from '../src/ui';
 import { supabaseConfigError } from '../utils/supabase';
 
 function Boot() {
   return (
-    <View style={{ flex: 1, backgroundColor: colors.greenDeep, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-      <Mark size={72} />
-      <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 }}>eRide</Text>
+    <View style={{ flex: 1, backgroundColor: colors.navyDark, alignItems: 'center', justifyContent: 'center' }}>
+      <Wordmark light size={34} />
     </View>
   );
 }
@@ -32,7 +31,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#07140F', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: colors.navyDark, alignItems: 'center', justifyContent: 'center' }}>
       <View
         style={{
           width: 390,
@@ -40,7 +39,7 @@ function Frame({ children }: { children: React.ReactNode }) {
           borderRadius: 36,
           overflow: 'hidden',
           borderWidth: 10,
-          borderColor: '#12352C',
+          borderColor: colors.navy,
           backgroundColor: colors.paper,
         }}
       >
@@ -88,7 +87,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: Platform.OS === 'web' ? '#07140F' : colors.paper }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: Platform.OS === 'web' ? colors.navyDark : colors.paper }}>
       <StoreProvider>
         <Frame>
           <RootNavigator fontsReady={fontsLoaded || Boolean(fontError)} />

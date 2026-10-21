@@ -5,25 +5,29 @@ import { Pressable, RefreshControl, ScrollView, Switch, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { firstName, greeting, inr, statusMeta } from '../../../src/data';
+import { RealMap } from '../../../src/real-map';
 import { useStore } from '../../../src/store';
 import { colors, shadow } from '../../../src/theme';
-import { AppText, Banner, CityMap, Wordmark } from '../../../src/ui';
+import { AppText, Banner, Wordmark } from '../../../src/ui';
+import { useCurrentLocation } from '../../../src/use-current-location';
 
 export default function DriverHome() {
   const router = useRouter();
   const { user, online, setOnline, driverRides, activeDriverRide, incoming, refreshRides } = useStore();
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
+  const { place: currentLocation, error: locationError } = useCurrentLocation(true);
   if (!user) return null;
 
   const today = driverRides.filter(
     (ride) => ride.status === 'completed' && new Date(ride.createdAt).toDateString() === new Date().toDateString(),
   );
   const earned = today.reduce((sum, ride) => sum + ride.fare, 0);
+  const allTrips = driverRides.filter((ride) => ride.status === 'completed').length;
   const stats = [
-    { label: 'Today', value: inr(earned) },
-    { label: 'Trips', value: String(today.length) },
-    { label: 'Rating', value: user.verified ? '4.9' : 'New' },
+    { label: 'Earned today', value: inr(earned) },
+    { label: 'Trips today', value: String(today.length) },
+    { label: 'All trips', value: String(allTrips) },
   ];
 
   return (
@@ -48,10 +52,14 @@ export default function DriverHome() {
         contentContainerStyle={{ padding: 20, paddingBottom: 28 }}
       >
         {message ? <Banner message={message} /> : null}
+        {!user.verified ? (
+          <Banner message="Submit documents on the MTUK Nagar Ride website if you have not already. Pickup stays locked until admin verification." />
+        ) : null}
+        {locationError ? <Banner message={locationError} /> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Wordmark size={22} />
           <View style={{ backgroundColor: user.verified ? colors.mint : colors.goldSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-            <AppText size={12} weight="bold" color={user.verified ? colors.greenDark : '#8A6410'}>
+            <AppText size={12} weight="bold" color={user.verified ? colors.greenDark : colors.goldDark}>
               {user.verified ? 'Verified' : 'In review'}
             </AppText>
           </View>
@@ -72,22 +80,40 @@ export default function DriverHome() {
               <AppText color="#FFFFFF" size={20} weight="extra">
                 {online ? 'You are online' : 'You are offline'}
               </AppText>
-              <AppText size={13} color="rgba(255,255,255,0.72)" style={{ marginTop: 2 }}>
-                Central Delhi
-              </AppText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                <Ionicons name="location" size={13} color={colors.gold} />
+                <AppText size={13} color="rgba(255,255,255,0.75)" numberOfLines={1} style={{ flex: 1 }}>
+                  {currentLocation ? `${currentLocation.name}, ${currentLocation.area}` : 'Finding your location…'}
+                </AppText>
+              </View>
             </View>
             <Switch
+              accessibilityLabel={online ? 'Go offline' : 'Go online'}
               value={online}
               onValueChange={setOnline}
-              trackColor={{ false: '#D5DDD8', true: '#1F9A78' }}
+              disabled={!user.verified}
+              trackColor={{ false: '#D5DEE7', true: colors.green }}
               thumbColor="#FFFFFF"
             />
           </View>
           <View style={{ opacity: online ? 1 : 0.4 }}>
-            <CityMap />
+            <View pointerEvents="none">
+              <RealMap
+                current={
+                  currentLocation
+                    ? { latitude: currentLocation.lat, longitude: currentLocation.lng, title: currentLocation.name }
+                    : undefined
+                }
+                height={156}
+              />
+            </View>
           </View>
           <AppText size={13} color="rgba(255,255,255,0.78)" style={{ marginTop: 12 }}>
-            {online ? 'Riders nearby can request you.' : 'You are hidden. Go online to receive requests.'}
+            {!user.verified
+              ? 'Documents are in review. You can go online after MTUK approves your partner application.'
+              : online
+                ? 'Riders nearby can request you.'
+                : 'You are hidden. Go online to receive requests.'}
           </AppText>
         </View>
 
@@ -148,24 +174,41 @@ export default function DriverHome() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/driver/requests')}
-            style={{
+            style={({ pressed }) => ({
               marginTop: 16,
-              backgroundColor: colors.goldSoft,
-              borderRadius: 18,
-              padding: 14,
+              backgroundColor: colors.gold,
+              borderRadius: 20,
+              padding: 16,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
-            }}
+              opacity: pressed ? 0.9 : 1,
+              ...shadow,
+            })}
           >
-            <Ionicons name="notifications" size={20} color="#8A6410" />
-            <View style={{ flex: 1 }}>
-              <AppText weight="bold">{incoming.length} ride {incoming.length === 1 ? 'request' : 'requests'}</AppText>
-              <AppText size={13} color={colors.inkSoft}>
-                Review pickup, drop, and fare.
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                backgroundColor: colors.greenDeep,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <AppText size={18} weight="extra" color={colors.gold}>
+                {incoming.length}
               </AppText>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#8A6410" />
+            <View style={{ flex: 1 }}>
+              <AppText weight="extra" color={colors.greenDeep}>
+                New ride {incoming.length === 1 ? 'request' : 'requests'}
+              </AppText>
+              <AppText size={13} color={colors.greenDark}>
+                Tap to see pickup, drop and fare.
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.greenDeep} />
           </Pressable>
         ) : null}
 

@@ -35,8 +35,8 @@ export default function RoleScreen() {
   return (
     <Page bottomInset>
       <ScreenHeader
-        title={intent === 'login' ? 'Sign in as' : 'Join eRide as'}
-        subtitle="Pick the side of the ride you want."
+        title={intent === 'login' ? 'Continue your journey' : 'Join MTUK Nagar Ride'}
+        subtitle="Choose how you want to use the app."
         fallback="/welcome"
       />
       <View style={{ gap: 12 }}>
@@ -58,8 +58,11 @@ export default function RoleScreen() {
               borderRadius: 20,
               borderWidth: 1,
               borderColor: colors.line,
+              borderLeftWidth: 5,
+              borderLeftColor: option.role === 'driver' ? colors.gold : colors.green,
               padding: 16,
               opacity: pressed ? 0.92 : 1,
+              transform: [{ scale: pressed ? 0.985 : 1 }],
             })}
           >
             <View
@@ -67,15 +70,15 @@ export default function RoleScreen() {
                 width: 52,
                 height: 52,
                 borderRadius: 16,
-                backgroundColor: option.role === 'driver' ? colors.goldSoft : colors.mint,
+                backgroundColor: option.role === 'driver' ? colors.goldSoft : colors.blueSoft,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
               {option.icon === 'rickshaw' ? (
-                <MaterialCommunityIcons name="rickshaw" size={26} color={colors.greenDark} />
+                <MaterialCommunityIcons name="rickshaw" size={26} color={colors.goldDark} />
               ) : (
-                <Ionicons name="person" size={24} color={colors.greenDark} />
+                <Ionicons name="person" size={24} color={colors.navy} />
               )}
             </View>
             <View style={{ flex: 1 }}>
@@ -91,7 +94,7 @@ export default function RoleScreen() {
         ))}
       </View>
       <AppText size={13} color={colors.muted} style={{ marginTop: 18 }}>
-        Demo accounts are filled in on the sign-in screen. You can switch roles anytime by logging out.
+        You can switch roles anytime by logging out.
       </AppText>
     </Page>
   );

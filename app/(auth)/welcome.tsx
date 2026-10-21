@@ -7,9 +7,9 @@ import { colors } from '../../src/theme';
 import { AppText, Button, Wordmark } from '../../src/ui';
 
 const points = [
-  { value: '4 min', label: 'Typical pickup' },
+  { value: 'Live', label: 'Ride tracking' },
   { value: '₹30', label: 'Fares from' },
-  { value: 'None', label: 'Surge pricing' },
+  { value: 'Local', label: 'Nagar rides' },
 ];
 
 export default function WelcomeScreen() {
@@ -17,32 +17,43 @@ export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.greenDeep }}>
-      <LinearGradient colors={['#041C17', '#0B4F40', '#12856C']} style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.navyDark }}>
+      <LinearGradient colors={[colors.navyDark, colors.navy, '#087DB8']} style={{ flex: 1 }}>
         <View
           style={{
             position: 'absolute',
-            width: 220,
-            height: 220,
-            borderRadius: 110,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            top: -60,
-            right: -50,
+            width: 240,
+            height: 240,
+            borderRadius: 120,
+            backgroundColor: 'rgba(0,168,79,0.22)',
+            top: -70,
+            right: -65,
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+            backgroundColor: 'rgba(255,170,0,0.18)',
+            bottom: 65,
+            left: -60,
           }}
         />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 52 }}>
-            <Wordmark light size={28} />
+            <Wordmark light size={32} />
             <AppText
-              size={36}
+              size={38}
               weight="extra"
               color="#FFFFFF"
               style={{ marginTop: 22, letterSpacing: -1 }}
             >
-              The city, by e-rickshaw.
+              Apna Nagar.{'\n'}Apni Ride.
             </AppText>
             <AppText color="rgba(255,255,255,0.78)" style={{ marginTop: 10 }}>
-              Book a quiet electric ride across Delhi, or go online and earn.
+              Real-time e-rickshaw booking for passengers and local service providers.
             </AppText>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
               {points.map((point) => (
@@ -50,8 +61,10 @@ export default function WelcomeScreen() {
                   key={point.label}
                   style={{
                     flex: 1,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: 14,
+                    backgroundColor: 'rgba(255,255,255,0.12)',
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.14)',
                     paddingVertical: 10,
                     paddingHorizontal: 8,
                   }}
@@ -86,9 +99,6 @@ export default function WelcomeScreen() {
           variant="secondary"
           onPress={() => router.push({ pathname: '/role', params: { intent: 'login' } })}
         />
-        <AppText center size={12} color={colors.muted} style={{ marginTop: 4 }}>
-          Demo only. No real trips or payments.
-        </AppText>
       </View>
     </View>
   );

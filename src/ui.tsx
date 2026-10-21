@@ -2,8 +2,11 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -13,6 +16,7 @@ import {
   TextInput,
   View,
   type KeyboardTypeOptions,
+  type ColorValue,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -63,58 +67,58 @@ export function AppText({
 }
 
 export function Mark({ size = 56 }: { size?: number }) {
-  const wheel = size * 0.15;
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.28,
-        backgroundColor: colors.gold,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View style={{ alignItems: 'center' }}>
-        <View
-          style={{
-            width: size * 0.5,
-            height: size * 0.26,
-            backgroundColor: colors.greenDeep,
-            borderTopLeftRadius: size * 0.16,
-            borderTopRightRadius: size * 0.16,
-          }}
-        />
-        <View
-          style={{
-            width: size * 0.56,
-            height: size * 0.07,
-            backgroundColor: colors.greenDeep,
-          }}
-        />
-        <View
-          style={{
-            flexDirection: 'row',
-            width: size * 0.48,
-            justifyContent: 'space-between',
-            marginTop: size * 0.06,
-          }}
-        >
-          <View style={{ width: wheel, height: wheel, borderRadius: wheel, backgroundColor: colors.greenDeep }} />
-          <View style={{ width: wheel, height: wheel, borderRadius: wheel, backgroundColor: colors.greenDeep }} />
-        </View>
-      </View>
-    </View>
+    <Image
+      source={require('../assets/brand-icon.png')}
+      resizeMode="contain"
+      style={{ width: size, height: size, borderRadius: size * 0.22 }}
+    />
   );
 }
 
 export function Wordmark({ light = false, size = 26 }: { light?: boolean; size?: number }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Mark size={size + 8} />
-      <AppText size={size} weight="extra" color={light ? '#FFFFFF' : colors.ink} style={{ letterSpacing: -0.6 }}>
-        eRide
-      </AppText>
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        borderRadius: 12,
+        paddingHorizontal: light ? 8 : 0,
+        paddingVertical: light ? 5 : 0,
+        backgroundColor: light ? colors.white : 'transparent',
+      }}
+    >
+      <Image
+        source={require('../assets/brand-logo.png')}
+        resizeMode="contain"
+        style={{ width: size * 5.2, height: size * 2.35 }}
+      />
+    </View>
+  );
+}
+
+export function TabItem({
+  icon,
+  activeIcon,
+  label,
+  color,
+  focused,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color: ColorValue;
+  focused: boolean;
+}) {
+  return (
+    <View style={{ minWidth: 76, height: 52, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+      <Ionicons name={focused ? activeIcon : icon} color={color} size={22} />
+      <Text
+        maxFontSizeMultiplier={1}
+        numberOfLines={1}
+        style={{ fontFamily: font.semibold, fontSize: 11, lineHeight: 15, color, textAlign: 'center' }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -124,25 +128,28 @@ export function Button({
   onPress,
   variant = 'primary',
   disabled,
+  loading,
   icon,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   disabled?: boolean;
+  loading?: boolean;
   icon?: React.ReactNode;
 }) {
   const palette = {
-    primary: { bg: colors.green, border: colors.green, text: '#FFFFFF' },
+    primary: { bg: colors.navy, border: colors.navy, text: '#FFFFFF' },
     secondary: { bg: colors.white, border: colors.line, text: colors.ink },
-    ghost: { bg: 'transparent', border: 'transparent', text: colors.green },
+    ghost: { bg: colors.blueSoft, border: colors.blueSoft, text: colors.navy },
     danger: { bg: colors.dangerSoft, border: colors.dangerSoft, text: colors.danger },
   }[variant];
 
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
+      accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
+      disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -150,10 +157,11 @@ export function Button({
           backgroundColor: palette.bg,
           borderColor: palette.border,
           opacity: disabled ? 0.45 : pressed ? 0.9 : 1,
+          transform: [{ scale: pressed && !disabled && !loading ? 0.985 : 1 }],
         },
       ]}
     >
-      {icon}
+      {loading ? <ActivityIndicator size="small" color={palette.text} /> : icon}
       <Text
         maxFontSizeMultiplier={1.2}
         style={{ fontFamily: font.bold, fontSize: 16, color: palette.text, lineHeight: 20 }}
@@ -234,7 +242,7 @@ export function Field({
 export function Banner({ message, tone = 'danger' }: { message: string; tone?: 'danger' | 'info' }) {
   const palette =
     tone === 'info'
-      ? { bg: colors.mint, fg: colors.greenDark }
+      ? { bg: colors.blueSoft, fg: colors.navy }
       : { bg: colors.dangerSoft, fg: colors.danger };
   return (
     <View style={{ backgroundColor: palette.bg, borderRadius: 14, padding: 12, marginBottom: 14 }}>
@@ -309,6 +317,7 @@ export function BackButton({ fallback }: { fallback?: string }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel="Go back"
       hitSlop={8}
       onPress={() => {
         if (router.canGoBack()) router.back();
@@ -354,12 +363,12 @@ export function Avatar({ name, size = 44, light = false }: { name: string; size?
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: light ? 'rgba(255,255,255,0.16)' : colors.mint,
+        backgroundColor: light ? 'rgba(255,255,255,0.16)' : colors.blueSoft,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <AppText weight="bold" size={Math.round(size * 0.34)} color={light ? '#FFFFFF' : colors.greenDark}>
+      <AppText weight="bold" size={Math.round(size * 0.34)} color={light ? '#FFFFFF' : colors.navy}>
         {initials(name)}
       </AppText>
     </View>
@@ -375,6 +384,62 @@ export function StatusPill({ status }: { status: RideStatus }) {
       </AppText>
     </View>
   );
+}
+
+export function SectionLabel({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
+  return (
+    <AppText size={12} weight="bold" color={colors.muted} style={[{ letterSpacing: 0.8, marginBottom: 10 }, style]}>
+      {children}
+    </AppText>
+  );
+}
+
+// Round icon action used for "Call" and "Navigate" on trip screens.
+export function IconAction({
+  icon,
+  label,
+  onPress,
+  tone = 'green',
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  tone?: 'green' | 'light';
+}) {
+  const filled = tone === 'green';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({ alignItems: 'center', gap: 4, opacity: pressed ? 0.75 : 1 })}
+    >
+      <View
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 23,
+          backgroundColor: filled ? colors.green : colors.mint,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name={icon} size={20} color={filled ? '#FFFFFF' : colors.green} />
+      </View>
+      <AppText size={11} weight="semibold" color={colors.inkSoft}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+export function callPhone(phone: string) {
+  Linking.openURL(`tel:${phone.replace(/[^\d+]/g, '')}`).catch(() => {});
+}
+
+// Google Maps URLs open the installed Maps app for turn-by-turn directions and are not billed.
+export function openDirections(lat: number, lng: number) {
+  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`).catch(() => {});
 }
 
 export function Surface({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -521,28 +586,23 @@ export function PulseDot({ color = colors.gold }: { color?: string }) {
   return <Animated.View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color, opacity }} />;
 }
 
-export function SessionActions({ onLogout, onReset }: { onLogout: () => void; onReset: () => void }) {
+export function SessionActions({ onLogout }: { onLogout: () => void }) {
   return (
-    <View style={{ marginTop: 8, gap: 4 }}>
+    <View style={{ marginTop: 8 }}>
       <Button
         label="Log out"
         variant="secondary"
         onPress={onLogout}
         icon={<Ionicons name="log-out-outline" size={18} color={colors.ink} />}
       />
-      <Pressable accessibilityRole="button" onPress={onReset} style={{ paddingVertical: 12 }}>
-        <AppText center size={13} weight="semibold" color={colors.muted}>
-          Reset demo data
-        </AppText>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 54,
-    borderRadius: 16,
+    minHeight: 56,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -551,8 +611,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   field: {
-    minHeight: 54,
-    borderRadius: 14,
+    minHeight: 56,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
@@ -577,7 +637,7 @@ const styles = StyleSheet.create({
   back: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 15,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
@@ -586,7 +646,7 @@ const styles = StyleSheet.create({
   },
   surface: {
     backgroundColor: colors.white,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
     padding: 16,

@@ -1,10 +1,27 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
 import { driverActionLabel, driverHeadline, firstParam, formatPhone, inr } from '../../src/data';
+import { RealMap } from '../../src/real-map';
 import { useStore } from '../../src/store';
 import { colors } from '../../src/theme';
-import { AppText, Banner, Button, EmptyState, Field, Page, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
+import {
+  AppText,
+  Avatar,
+  Banner,
+  Button,
+  callPhone,
+  EmptyState,
+  Field,
+  IconAction,
+  openDirections,
+  Page,
+  RouteSummary,
+  ScreenHeader,
+  Surface,
+} from '../../src/ui';
+import { useCurrentLocation } from '../../src/use-current-location';
 
 export default function TripScreen() {
   const router = useRouter();
@@ -20,7 +37,20 @@ export default function TripScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [otp, setOtp] = useState('');
   const [message, setMessage] = useState('');
+  const { place: currentLocation, error: locationError } = useCurrentLocation(true);
   const action = ride ? driverActionLabel(ride.status) : null;
+  const passengerPhone = ride?.passengerPhone;
+  // Navigate to the pickup until the ride starts, then to the drop.
+  const target =
+    !ride || ride.status === 'completed' || ride.status === 'cancelled'
+      ? null
+      : ride.status === 'ongoing'
+        ? ride.dropLat !== undefined && ride.dropLng !== undefined
+          ? { lat: ride.dropLat, lng: ride.dropLng }
+          : null
+        : ride.pickupLat !== undefined && ride.pickupLng !== undefined
+          ? { lat: ride.pickupLat, lng: ride.pickupLng }
+          : null;
 
   if (!ride) {
     return (
@@ -46,7 +76,8 @@ export default function TripScreen() {
         action ? (
           <Button
             label={action}
-            disabled={pending}
+            loading={pending}
+            disabled={ride.status === 'arriving' && otp.length !== 4}
             onPress={async () => {
               if (ride.status === 'arriving' && otp.length !== 4) {
                 setMessage('Enter the 4-digit OTP from the passenger.');
@@ -66,16 +97,30 @@ export default function TripScreen() {
     >
       <ScreenHeader title={ride.passengerName} subtitle={driverHeadline(ride.status)} fallback="/driver" />
       {message ? <Banner message={message} /> : null}
-      <Surface style={{ marginBottom: 14 }}>
-        <AppText size={12} color={colors.muted}>
-          Passenger
-        </AppText>
-        <AppText size={20} weight="extra" style={{ marginTop: 2 }}>
-          {ride.passengerName}
-        </AppText>
-        <AppText color={colors.muted} style={{ marginTop: 4 }}>
-          {ride.passengerPhone ? formatPhone(ride.passengerPhone) : 'Phone not provided'}
-        </AppText>
+      {locationError ? <Banner message={locationError} /> : null}
+      <Surface style={{ marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Avatar name={ride.passengerName} size={48} />
+        <View style={{ flex: 1 }}>
+          <AppText size={12} color={colors.muted}>
+            Passenger
+          </AppText>
+          <AppText size={18} weight="extra" numberOfLines={1}>
+            {ride.passengerName}
+          </AppText>
+          <AppText size={13} color={colors.muted}>
+            {passengerPhone ? formatPhone(passengerPhone) : 'Phone not provided'}
+          </AppText>
+        </View>
+        {passengerPhone && ride.status !== 'completed' ? (
+          <IconAction icon="call" label="Call" tone="light" onPress={() => callPhone(passengerPhone)} />
+        ) : null}
+        {target ? (
+          <IconAction
+            icon="navigate"
+            label={ride.status === 'ongoing' ? 'To drop' : 'To pickup'}
+            onPress={() => openDirections(target.lat, target.lng)}
+          />
+        ) : null}
       </Surface>
       {ride.status === 'arriving' ? (
         <Surface style={{ marginBottom: 14 }}>
@@ -94,6 +139,23 @@ export default function TripScreen() {
             maxLength={4}
           />
         </Surface>
+      ) : null}
+      {ride.pickupLat !== undefined &&
+      ride.pickupLng !== undefined &&
+      ride.dropLat !== undefined &&
+      ride.dropLng !== undefined ? (
+        <View style={{ marginBottom: 14 }}>
+          <RealMap
+            current={
+              currentLocation
+                ? { latitude: currentLocation.lat, longitude: currentLocation.lng, title: currentLocation.name }
+                : undefined
+            }
+            pickup={{ latitude: ride.pickupLat, longitude: ride.pickupLng, title: ride.pickup }}
+            drop={{ latitude: ride.dropLat, longitude: ride.dropLng, title: ride.drop }}
+            height={220}
+          />
+        </View>
       ) : null}
       <RouteSummary ride={ride} />
       {ride.status === 'completed' ? (

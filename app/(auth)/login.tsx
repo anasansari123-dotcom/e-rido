@@ -2,7 +2,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { DEMO_DRIVER, DEMO_PASSENGER, firstParam } from '../../src/data';
+import { firstParam } from '../../src/data';
 import { useStore } from '../../src/store';
 import { colors } from '../../src/theme';
 import { AppText, Banner, Button, Field, Page, ScreenHeader } from '../../src/ui';
@@ -14,7 +14,6 @@ export default function LoginScreen() {
   const roleParam = firstParam(params.role);
   const role: Role | null = roleParam === 'driver' || roleParam === 'passenger' ? roleParam : null;
   const { login, sendEmailOtp, verifyEmailOtp } = useStore();
-  const demo = role === 'driver' ? DEMO_DRIVER : DEMO_PASSENGER;
   const [method, setMethod] = useState<'password' | 'otp'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,12 +38,6 @@ export default function LoginScreen() {
   if (!role) return <Redirect href={{ pathname: '/role', params: { intent: 'login' } }} />;
 
   const accountRole = role;
-
-  function fillDemo() {
-    setEmail(demo.email);
-    setPassword(demo.password);
-    setError('');
-  }
 
   async function submit() {
     setSubmitting(true);
@@ -101,7 +94,7 @@ export default function LoginScreen() {
                 setError('');
                 setNotice('');
               }}
-              style={{ flex: 1, backgroundColor: selected ? colors.green : 'transparent', borderRadius: 10, paddingVertical: 10 }}
+              style={{ flex: 1, backgroundColor: selected ? colors.navy : 'transparent', borderRadius: 10, paddingVertical: 10 }}
             >
               <AppText center weight="bold" color={selected ? '#FFFFFF' : colors.inkSoft}>
                 {label}
@@ -128,7 +121,7 @@ export default function LoginScreen() {
             placeholder="Your password"
             secure
           />
-          <Button label={submitting ? 'Signing in' : 'Sign in'} onPress={submit} disabled={submitting} />
+          <Button label={submitting ? 'Signing in…' : 'Sign in'} onPress={submit} loading={submitting} />
         </>
       ) : (
         <>
@@ -145,7 +138,7 @@ export default function LoginScreen() {
           <Button
             label={submitting ? 'Please wait' : codeSent ? 'Verify code' : 'Send code'}
             onPress={codeSent ? verifyCode : sendCode}
-            disabled={submitting}
+            loading={submitting}
           />
           {codeSent ? (
             <Pressable accessibilityRole="button" onPress={sendCode} style={{ marginTop: 12 }}>
@@ -155,48 +148,18 @@ export default function LoginScreen() {
             </Pressable>
           ) : (
             <AppText center size={12} color={colors.muted} style={{ marginTop: 12 }}>
-              Supabase sends this code to your email. No SMS charge.
+              We will email you a 6-digit sign-in code.
             </AppText>
           )}
         </>
       )}
       <Pressable
         accessibilityRole="button"
-        onPress={fillDemo}
-        style={{
-          marginTop: 18,
-          backgroundColor: colors.white,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.line,
-          padding: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <AppText size={12} weight="bold" color={colors.green}>
-            DEMO ACCOUNT
-          </AppText>
-          <AppText weight="semibold" style={{ marginTop: 2 }}>
-            {demo.name}
-          </AppText>
-          <AppText size={13} color={colors.muted}>
-            {demo.email} · {demo.password}
-          </AppText>
-        </View>
-        <AppText weight="bold" color={colors.green}>
-          Use
-        </AppText>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
         onPress={() => router.replace({ pathname: '/signup', params: { role } })}
         style={{ marginTop: 18 }}
       >
         <AppText center color={colors.inkSoft}>
-          New to eRide? <AppText weight="bold" color={colors.green}>Create an account</AppText>
+          New to MTUK Nagar Ride? <AppText weight="bold" color={colors.green}>Create an account</AppText>
         </AppText>
       </Pressable>
       <Pressable

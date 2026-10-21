@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "eRide",
+    "name": "MTUK Nagar Ride",
     "slug": "e-ride",
     "scheme": "eride",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mohdanas786.eride"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/brand-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.mohdanas786.eride"

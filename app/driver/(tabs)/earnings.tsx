@@ -61,7 +61,7 @@ export default function EarningsScreen() {
               key={item}
               accessibilityRole="button"
               onPress={() => setPeriod(item)}
-              style={{ flex: 1, backgroundColor: selected ? colors.green : 'transparent', borderRadius: 10, paddingVertical: 10 }}
+              style={{ flex: 1, backgroundColor: selected ? colors.navy : 'transparent', borderRadius: 10, paddingVertical: 10 }}
             >
               <AppText center weight="bold" color={selected ? '#FFFFFF' : colors.inkSoft}>
                 {item === 'today' ? 'Today' : 'This week'}

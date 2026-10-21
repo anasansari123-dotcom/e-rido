@@ -3,11 +3,25 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { firstParam, formatPhone, formatWhen, passengerHeadline, rideSteps } from '../../src/data';
+import { firstParam, formatWhen, passengerHeadline, rideSteps } from '../../src/data';
+import { RealMap } from '../../src/real-map';
 import { useStore } from '../../src/store';
 import { colors } from '../../src/theme';
-import { AppText, Avatar, Banner, Button, EmptyState, Page, PulseDot, RouteSummary, ScreenHeader, Surface } from '../../src/ui';
 import type { RideStatus } from '../../src/types';
+import {
+  AppText,
+  Avatar,
+  Banner,
+  Button,
+  callPhone,
+  EmptyState,
+  IconAction,
+  Page,
+  PulseDot,
+  RouteSummary,
+  ScreenHeader,
+  Surface,
+} from '../../src/ui';
 
 const order: RideStatus[] = ['requested', 'accepted', 'arriving', 'ongoing', 'completed'];
 
@@ -40,7 +54,12 @@ export default function TrackingScreen() {
     );
   }
 
+  const finished = ride.status === 'completed' || ride.status === 'cancelled';
+  const showOtp = ride.status === 'accepted' || ride.status === 'arriving';
   const current = order.indexOf(ride.status);
+  const driverPhone = ride.driverPhone;
+  const { pickupLat, pickupLng, dropLat, dropLng } = ride;
+
   return (
     <Page
       bottomInset
@@ -53,46 +72,28 @@ export default function TrackingScreen() {
         if (!result.ok) setMessage(result.error);
       }}
     >
-      <ScreenHeader title="Trip" subtitle={passengerHeadline(ride.status)} fallback="/passenger" />
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          backgroundColor: colors.mint,
-          borderRadius: 14,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          marginBottom: 14,
-        }}
-      >
-        <PulseDot />
-        <View style={{ flex: 1 }}>
-          <AppText size={13} weight="bold" color={colors.greenDark}>
-            Live trip updates
-          </AppText>
-          <AppText size={11} color={colors.inkSoft}>
-            {ride.updatedAt ? `Last update ${formatWhen(ride.updatedAt)}` : 'Connected to your service provider'}
-          </AppText>
-        </View>
-      </View>
+      <ScreenHeader
+        title={finished ? 'Trip summary' : 'Your ride'}
+        subtitle={ride.updatedAt ? `Updated ${formatWhen(ride.updatedAt)}` : formatWhen(ride.createdAt)}
+        fallback="/passenger"
+      />
       {message ? <Banner message={message} /> : null}
 
-      {ride.status === 'completed' || ride.status === 'cancelled' ? (
-        <Surface style={{ alignItems: 'center', marginBottom: 14 }}>
+      {finished ? (
+        <Surface style={{ alignItems: 'center', marginBottom: 14, paddingVertical: 22 }}>
           <View
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
+              width: 68,
+              height: 68,
+              borderRadius: 34,
               backgroundColor: ride.status === 'completed' ? colors.mint : colors.dangerSoft,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <Ionicons
-              name={ride.status === 'completed' ? 'checkmark-circle' : 'close'}
-              size={32}
+              name={ride.status === 'completed' ? 'checkmark' : 'close'}
+              size={34}
               color={ride.status === 'completed' ? colors.green : colors.danger}
             />
           </View>
@@ -104,93 +105,116 @@ export default function TrackingScreen() {
           </AppText>
         </Surface>
       ) : (
-        <Surface style={{ marginBottom: 14 }}>
-          {ride.status === 'requested' ? (
-            <View style={{ marginBottom: 14, gap: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <PulseDot />
-                <AppText weight="semibold">Checking nearby e-rickshaws</AppText>
-              </View>
-              <AppText size={13} color={colors.muted}>
-                Keep this screen open. Driver details will appear automatically after acceptance.
-              </AppText>
+        <>
+          {pickupLat !== undefined && pickupLng !== undefined && dropLat !== undefined && dropLng !== undefined ? (
+            <View style={{ marginBottom: 14 }}>
+              <RealMap
+                pickup={{ latitude: pickupLat, longitude: pickupLng, title: ride.pickup }}
+                drop={{ latitude: dropLat, longitude: dropLng, title: ride.drop }}
+                height={220}
+              />
             </View>
           ) : null}
-          {rideSteps.map((step, index) => {
-            const state = index < current ? 'done' : index === current ? 'now' : 'wait';
-            return (
-              <View key={step.status} style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ width: 18, alignItems: 'center' }}>
-                  <View
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: 6,
-                      marginTop: 4,
-                      backgroundColor: state === 'wait' ? colors.line : state === 'now' ? colors.gold : colors.green,
-                    }}
-                  />
-                  {index < rideSteps.length - 1 ? (
-                    <View
-                      style={{
-                        width: 2,
-                        flex: 1,
-                        minHeight: 28,
-                        marginVertical: 4,
-                        backgroundColor: index < current ? colors.green : colors.line,
-                      }}
-                    />
-                  ) : null}
-                </View>
-                <View style={{ flex: 1, paddingBottom: 14 }}>
-                  <AppText weight="semibold" color={state === 'wait' ? colors.muted : colors.ink}>
-                    {step.title}
-                  </AppText>
-                  <AppText size={13} color={colors.muted}>
-                    {step.body}
-                  </AppText>
-                </View>
-              </View>
-            );
-          })}
-        </Surface>
-      )}
 
-      {ride.driverName ? (
-        <Surface style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-          <Avatar name={ride.driverName} />
-          <View style={{ flex: 1 }}>
-            <AppText weight="bold">{ride.driverName}</AppText>
-            <AppText size={13} color={colors.muted}>
-              {ride.vehicleModel} · {ride.vehicleNumber}
-            </AppText>
-            {ride.driverPhone ? (
-              <AppText size={13} color={colors.green} weight="semibold" style={{ marginTop: 3 }}>
-                {formatPhone(ride.driverPhone)}
+          <Surface style={{ marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <PulseDot color={ride.status === 'requested' ? colors.gold : colors.green} />
+              <AppText size={18} weight="extra" style={{ flex: 1 }}>
+                {passengerHeadline(ride.status)}
+              </AppText>
+            </View>
+            {ride.status === 'requested' ? (
+              <AppText size={13} color={colors.muted} style={{ marginTop: 6 }}>
+                Keep this screen open. Driver details appear here as soon as someone accepts.
               </AppText>
             ) : null}
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Ionicons name="shield-checkmark" size={20} color={colors.green} />
-            <AppText size={12} color={colors.muted}>
-              Verified
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 14 }}>
+              {rideSteps.map((step, index) => (
+                <View
+                  key={step.status}
+                  style={{
+                    flex: 1,
+                    height: 5,
+                    borderRadius: 3,
+                    backgroundColor: index < current ? colors.green : index === current ? colors.gold : colors.line,
+                  }}
+                />
+              ))}
+            </View>
+            <AppText size={12} color={colors.muted} style={{ marginTop: 8 }}>
+              {rideSteps[Math.min(current, rideSteps.length - 1)]?.body}
+            </AppText>
+          </Surface>
+        </>
+      )}
+
+      {showOtp ? (
+        <View
+          style={{
+            backgroundColor: colors.goldSoft,
+            borderRadius: 18,
+            padding: 16,
+            marginBottom: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+          <AppText size={12} weight="bold" color={colors.goldDark} style={{ letterSpacing: 0.8 }}>
+              TRIP OTP
+            </AppText>
+            <AppText size={12} color={colors.inkSoft} style={{ marginTop: 2 }}>
+              Share with your driver to start the ride.
             </AppText>
           </View>
-        </Surface>
+          <View
+            accessible
+            accessibilityLabel={`Trip OTP ${ride.otp.split('').join(' ')}`}
+            style={{ flexDirection: 'row', gap: 6 }}
+          >
+            {ride.otp.split('').map((digit, index) => (
+              <View
+                key={index}
+                style={{
+                  width: 36,
+                  height: 44,
+                  borderRadius: 10,
+                  backgroundColor: colors.white,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <AppText size={22} weight="extra">
+                  {digit}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        </View>
       ) : null}
 
-      {ride.status === 'accepted' || ride.status === 'arriving' || ride.status === 'ongoing' ? (
-        <View style={{ backgroundColor: colors.goldSoft, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 14 }}>
-          <AppText size={12} weight="bold" color="#8A6410">
-            TRIP OTP
-          </AppText>
-          <AppText size={32} weight="extra" style={{ letterSpacing: 6, marginTop: 4 }}>
-            {ride.otp}
-          </AppText>
-          <AppText size={12} color={colors.inkSoft} center style={{ marginTop: 4 }}>
-            Share this with your driver before the ride starts.
-          </AppText>
-        </View>
+      {ride.driverName ? (
+        <Surface style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Avatar name={ride.driverName} size={50} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <AppText weight="bold" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {ride.driverName}
+                </AppText>
+                <Ionicons name="shield-checkmark" size={15} color={colors.green} />
+              </View>
+              <AppText size={13} color={colors.muted} numberOfLines={1}>
+                {ride.vehicleModel ?? 'E-Rickshaw'}
+              </AppText>
+              {ride.vehicleNumber ? <NumberPlate value={ride.vehicleNumber} /> : null}
+            </View>
+            {driverPhone && !finished ? (
+              <IconAction icon="call" label="Call" onPress={() => callPhone(driverPhone)} />
+            ) : null}
+          </View>
+        </Surface>
       ) : null}
 
       <RouteSummary ride={ride} />
@@ -198,14 +222,17 @@ export default function TrackingScreen() {
       {canCancel ? (
         <View style={{ marginTop: 16 }}>
           {confirming ? (
-            <View style={{ gap: 8 }}>
-              <AppText center weight="semibold">
+            <Surface style={{ gap: 8 }}>
+              <AppText center weight="bold">
                 Cancel this ride?
+              </AppText>
+              <AppText center size={13} color={colors.muted}>
+                {ride.status === 'accepted' ? 'Your driver is already on the way.' : 'We will stop looking for a driver.'}
               </AppText>
               <Button
                 label={cancelling ? 'Cancelling…' : 'Yes, cancel'}
                 variant="danger"
-                disabled={cancelling}
+                loading={cancelling}
                 onPress={async () => {
                   setCancelling(true);
                   setMessage('');
@@ -219,18 +246,39 @@ export default function TrackingScreen() {
                 }}
               />
               <Button label="Keep ride" variant="ghost" onPress={() => setConfirming(false)} />
-            </View>
+            </Surface>
           ) : (
             <Button label="Cancel ride" variant="ghost" onPress={() => setConfirming(true)} />
           )}
         </View>
       ) : null}
 
-      {ride.status === 'completed' || ride.status === 'cancelled' ? (
+      {finished ? (
         <View style={{ marginTop: 16 }}>
           <Button label="Book another ride" onPress={() => router.replace('/passenger/book')} />
         </View>
       ) : null}
     </Page>
+  );
+}
+
+function NumberPlate({ value }: { value: string }) {
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        marginTop: 6,
+        borderWidth: 1.5,
+        borderColor: colors.ink,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        backgroundColor: '#FFFDF5',
+      }}
+    >
+      <AppText size={13} weight="extra" style={{ letterSpacing: 1 }}>
+        {value}
+      </AppText>
+    </View>
   );
 }

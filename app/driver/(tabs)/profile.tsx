@@ -5,7 +5,7 @@ import { AppText, Avatar, KeyValue, Page, SessionActions, Surface } from '../../
 import { View } from 'react-native';
 
 export default function DriverProfile() {
-  const { user, logout, resetDemo, online } = useStore();
+  const { user, logout, online } = useStore();
   if (!user) return null;
 
   return (
@@ -16,17 +16,16 @@ export default function DriverProfile() {
           {user.name}
         </AppText>
         <View style={{ marginTop: 8, backgroundColor: colors.goldSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-          <AppText size={12} weight="bold" color="#8A6410">
+          <AppText size={12} weight="bold" color={colors.goldDark}>
             Service provider
           </AppText>
         </View>
       </View>
 
       <Surface style={{ marginBottom: 12 }}>
-        <KeyValue label="Phone" value={formatPhone(user.phone)} />
+        <KeyValue label="Phone" value={user.phone ? formatPhone(user.phone) : 'Not added'} />
         <KeyValue label="Email" value={user.email} />
         <KeyValue label="Status" value={online ? 'Online' : 'Offline'} />
-        <KeyValue label="Rating" value={user.verified ? '4.9' : 'New'} />
       </Surface>
 
       <AppText size={12} weight="bold" color={colors.muted} style={{ letterSpacing: 0.8, marginBottom: 10 }}>
@@ -38,14 +37,7 @@ export default function DriverProfile() {
         <KeyValue label="Documents" value={user.verified ? 'Verified' : 'Pending review'} />
       </Surface>
 
-      <Surface>
-        <AppText weight="bold">About this demo</AppText>
-        <AppText size={13} color={colors.muted} style={{ marginTop: 6 }}>
-          Your name, phone, email, and vehicle are saved to your account. Requests and earnings stay on this phone.
-        </AppText>
-      </Surface>
-
-      <SessionActions onLogout={logout} onReset={resetDemo} />
+      <SessionActions onLogout={logout} />
     </Page>
   );
 }
