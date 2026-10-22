@@ -8,21 +8,14 @@ import {
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Platform, Text, useWindowDimensions, View } from 'react-native';
 
+import { IntroVideo } from '../src/intro-video';
 import { StoreProvider, useStore } from '../src/store';
 import { colors } from '../src/theme';
-import { Wordmark } from '../src/ui';
 import { supabaseConfigError } from '../utils/supabase';
-
-function Boot() {
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.navyDark, alignItems: 'center', justifyContent: 'center' }}>
-      <Wordmark light size={34} />
-    </View>
-  );
-}
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { width, height } = useWindowDimensions();
@@ -35,7 +28,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       <View
         style={{
           width: 390,
-          height: Math.min(height - 48, 860),
+          height: Math.min(height - 48, 844),
           borderRadius: 36,
           overflow: 'hidden',
           borderWidth: 10,
@@ -52,7 +45,8 @@ function Frame({ children }: { children: React.ReactNode }) {
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { ready } = useStore();
   const pathname = usePathname();
-  const booting = !fontsReady || !ready;
+  const [introDone, setIntroDone] = useState(false);
+  const booting = !fontsReady || !ready || !introDone;
 
   return (
     <View style={{ flex: 1 }}>
@@ -60,7 +54,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }} />
       {booting ? (
         <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
-          <Boot />
+          <IntroVideo onFinished={() => setIntroDone(true)} />
         </View>
       ) : null}
     </View>

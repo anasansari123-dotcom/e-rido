@@ -176,7 +176,7 @@ export default function PassengerHome() {
             </View>
           </View>
           <AppText size={12} color="rgba(255,255,255,0.7)" style={{ marginTop: 10, marginLeft: 2 }}>
-            Upfront fares from ₹30 · No surge · Pay in cash
+            First ride free · No surge · Pay in cash
           </AppText>
         </Pressable>
 

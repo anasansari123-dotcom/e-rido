@@ -7,6 +7,9 @@
     "orientation": "portrait",
     "icon": "./assets/brand-icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#042D58"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mohdanas786.eride"

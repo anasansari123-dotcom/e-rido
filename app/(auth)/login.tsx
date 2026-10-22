@@ -58,7 +58,7 @@ export default function LoginScreen() {
       return;
     }
     setCodeSent(true);
-    setNotice('A 6-digit code is on its way to your email.');
+    setNotice('An OTP is on its way to your email.');
   }
 
   async function verifyCode() {
@@ -127,16 +127,16 @@ export default function LoginScreen() {
         <>
           {codeSent ? (
             <Field
-              label="Email code"
+              label="OTP"
               value={code}
-              onChangeText={setCode}
-              placeholder="6-digit code"
+              onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="Enter OTP"
               keyboardType="number-pad"
               maxLength={8}
             />
           ) : null}
           <Button
-            label={submitting ? 'Please wait' : codeSent ? 'Verify code' : 'Send code'}
+            label={submitting ? 'Please wait' : codeSent ? 'Verify OTP' : 'Send OTP'}
             onPress={codeSent ? verifyCode : sendCode}
             loading={submitting}
           />
@@ -148,7 +148,7 @@ export default function LoginScreen() {
             </Pressable>
           ) : (
             <AppText center size={12} color={colors.muted} style={{ marginTop: 12 }}>
-              We will email you a 6-digit sign-in code.
+              We will email you an OTP to sign in.
             </AppText>
           )}
         </>

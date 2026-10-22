@@ -32,7 +32,7 @@ type Persisted = {
 
 type State = Persisted & { ready: boolean };
 
-type Result = { ok: true } | { ok: false; error: string };
+type Result = { ok: true; pendingOtp?: boolean; pendingProfile?: boolean } | { ok: false; error: string };
 
 type RideBooking = {
   pickup: string;
@@ -56,8 +56,8 @@ type StoreValue = {
   driverRides: Ride[];
   rideById: (id: string) => Ride | null;
   login: (email: string, password: string, role: Role) => Promise<Result>;
-  sendEmailOtp: (email: string) => Promise<Result>;
-  verifyEmailOtp: (email: string, code: string, role: Role) => Promise<Result>;
+  sendEmailOtp: (email: string, kind?: 'login' | 'signup', role?: Role) => Promise<Result>;
+  verifyEmailOtp: (email: string, code: string, role: Role, mode?: 'login' | 'signup') => Promise<Result>;
   signup: (input: SignupInput) => Promise<Result>;
   logout: () => void;
   bookRide: (input: RideBooking) => Promise<{ ok: true; ride: Ride } | { ok: false; error: string }>;
@@ -104,6 +104,12 @@ function profileFromUser(user: User): Account {
     vehicleModel: textMeta(meta.vehicle_model) || undefined,
     verified: meta.verified === true,
   };
+}
+
+function isSignupIncomplete(user: User) {
+  const meta = user.user_metadata ?? {};
+  if (meta.signup_incomplete === true) return true;
+  return textMeta(meta.name).trim().length < 2;
 }
 
 function bookedToRide(ride: BookedRide): Ride {
@@ -182,8 +188,11 @@ function authError(message: string) {
   if (text.includes('signups not allowed')) {
     return 'No account found for this email. Create one first.';
   }
-  if (text.includes('expired') || text.includes('otp') || text.includes('token')) {
-    return 'That code is invalid or expired. Send a new one.';
+  if (text.includes('sending magic link') || text.includes('sending confirmation') || text.includes('error sending')) {
+    return 'Email could not be sent. Check Gmail SMTP: sender must be your Gmail, and the password must be a 16-character App Password.';
+  }
+  if (text.includes('token has expired') || text.includes('otp_expired') || ((text.includes('invalid') || text.includes('expired')) && (text.includes('token') || text.includes('otp')))) {
+    return 'That OTP is invalid or expired. Send a new one.';
   }
   if (text.includes('password')) return 'Use at least 6 characters.';
   return message;
@@ -221,7 +230,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
         const sessionUser = sessionResult.data.session?.user;
-        if (!sessionUser) {
+        if (!sessionUser || isSignupIncomplete(sessionUser)) {
           setState({ ...base, sessionId: null, ready: true });
           return;
         }
@@ -397,65 +406,72 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return startSession(data.user, role);
   }, [startSession]);
 
-  const sendEmailOtp = useCallback(async (email: string): Promise<Result> => {
+  const sendEmailOtp = useCallback(async (email: string, kind: 'login' | 'signup' = 'login', role?: Role): Promise<Result> => {
     const cleaned = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(cleaned)) {
       return { ok: false, error: 'Enter a valid email.' };
     }
     const { error } = await supabase.auth.signInWithOtp({
       email: cleaned,
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: kind === 'signup',
+        data:
+          kind === 'signup'
+            ? { role: role === 'driver' ? 'driver' : 'passenger', signup_incomplete: true }
+            : undefined,
+      },
     });
     if (error) return { ok: false, error: authError(error.message) };
-    return { ok: true };
+    return { ok: true, pendingOtp: true };
   }, []);
 
-  const verifyEmailOtp = useCallback(async (email: string, code: string, role: Role): Promise<Result> => {
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: code.trim(),
-      type: 'email',
-    });
-    if (error || !data.user) {
-      return { ok: false, error: authError(error?.message ?? 'Could not verify the code.') };
+  const verifyEmailOtp = useCallback(async (email: string, code: string, role: Role, mode: 'login' | 'signup' = 'login'): Promise<Result> => {
+    const cleaned = email.trim().toLowerCase();
+    const token = code.replace(/\s/g, '');
+    if (!/^\d{6,8}$/.test(token)) {
+      return { ok: false, error: 'Enter the OTP from your email.' };
     }
-    return startSession(data.user, role);
+
+    const types = mode === 'signup' ? (['email', 'magiclink', 'signup'] as const) : (['email', 'magiclink'] as const);
+    let lastMessage = 'Could not verify the OTP.';
+    for (const type of types) {
+      const { data, error } = await supabase.auth.verifyOtp({ email: cleaned, token, type });
+      if (error?.message) lastMessage = error.message;
+      if (error || !data.user) continue;
+      if (mode === 'signup') {
+        if (!isSignupIncomplete(data.user)) {
+          await supabase.auth.signOut();
+          return { ok: false, error: 'This email is already registered. Try signing in.' };
+        }
+        return { ok: true, pendingProfile: true };
+      }
+      return startSession(data.user, role);
+    }
+    return { ok: false, error: authError(lastMessage) };
   }, [startSession]);
 
   const signup = useCallback(async (input: SignupInput): Promise<Result> => {
     const phone = normalizePhone(input.phone);
-    const email = input.email.trim().toLowerCase();
-    const { data, error } = await supabase.auth.signUp({
-      email,
+    const { data: current, error: currentError } = await supabase.auth.getUser();
+    if (currentError || !current.user) {
+      return { ok: false, error: 'Verify your email first, then create the account.' };
+    }
+    const { data, error } = await supabase.auth.updateUser({
       password: input.password.trim(),
-      options: {
-        data: {
-          name: input.name.trim().replace(/\s+/g, ' '),
-          phone,
-          role: input.role,
-          vehicle_number: input.vehicleNumber?.trim().toUpperCase() ?? '',
-          vehicle_model: input.vehicleModel?.trim() ?? '',
-        },
+      data: {
+        name: input.name.trim().replace(/\s+/g, ' '),
+        phone,
+        role: input.role,
+        vehicle_number: input.vehicleNumber?.trim().toUpperCase() ?? '',
+        vehicle_model: input.vehicleModel?.trim() ?? '',
+        signup_incomplete: false,
       },
     });
     if (error || !data.user) {
       return { ok: false, error: authError(error?.message ?? 'Could not create the account.') };
     }
-    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      return { ok: false, error: 'This email is already registered. Try signing in.' };
-    }
-    if (!data.session) {
-      return { ok: false, error: 'Account created. Check your email to confirm it, then sign in.' };
-    }
-    const account = profileFromUser(data.user);
-    setState((current) => ({
-      ...current,
-      accounts: upsertAccount(current.accounts, account),
-      sessionId: account.id,
-    }));
-    await rememberAccount(account);
-    return { ok: true };
-  }, [rememberAccount]);
+    return startSession(data.user, input.role);
+  }, [startSession]);
 
   const logout = useCallback(() => {
     supabase.auth.signOut().catch(() => {});

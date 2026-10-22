@@ -8,7 +8,7 @@ import { AppText, Button, Wordmark } from '../../src/ui';
 
 const points = [
   { value: 'Live', label: 'Ride tracking' },
-  { value: '₹30', label: 'Fares from' },
+  { value: 'Free', label: 'First ride' },
   { value: 'Local', label: 'Nagar rides' },
 ];
 

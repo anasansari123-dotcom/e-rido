@@ -8,6 +8,7 @@ const iosMapsKey = process.env.GOOGLE_MAPS_IOS_API_KEY;
 module.exports = ({ config }) => {
   const plugins = [
     ...(config.plugins ?? []),
+    'expo-video',
     [
       'expo-location',
       {
