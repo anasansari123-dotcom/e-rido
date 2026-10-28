@@ -66,7 +66,11 @@ function cleanText(value: unknown) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    // Safe boolean only — never expose the key. Places search + route polyline need this.
+    mapsServerKey: Boolean(googleMapsServerKey),
+  });
 });
 
 // Delhi is the default search bias when the app has no GPS fix yet.
