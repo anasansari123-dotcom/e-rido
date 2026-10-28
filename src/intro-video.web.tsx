@@ -40,7 +40,9 @@ export function IntroVideo({ onFinished }: { onFinished: () => void }) {
   const done = useRef(false);
   const playTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onFinishedRef = useRef(onFinished);
-  onFinishedRef.current = onFinished;
+  useEffect(() => {
+    onFinishedRef.current = onFinished;
+  }, [onFinished]);
 
   function finish() {
     if (done.current) return;

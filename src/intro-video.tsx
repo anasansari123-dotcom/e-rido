@@ -1,6 +1,6 @@
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { colors } from './theme';
@@ -14,14 +14,16 @@ export function IntroVideo({ onFinished }: { onFinished: () => void }) {
   const started = useRef(false);
   const playTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onFinishedRef = useRef(onFinished);
-  onFinishedRef.current = onFinished;
+  useEffect(() => {
+    onFinishedRef.current = onFinished;
+  }, [onFinished]);
 
   const player = useVideoPlayer(INTRO, (instance) => {
     instance.muted = true;
     instance.loop = false;
   });
 
-  function finish() {
+  const finish = useCallback(() => {
     if (done.current) return;
     done.current = true;
     if (playTimer.current) clearTimeout(playTimer.current);
@@ -31,7 +33,7 @@ export function IntroVideo({ onFinished }: { onFinished: () => void }) {
       // Player may already be released.
     }
     onFinishedRef.current();
-  }
+  }, [player]);
 
   function startClock() {
     if (started.current || done.current) return;
@@ -44,10 +46,8 @@ export function IntroVideo({ onFinished }: { onFinished: () => void }) {
   });
 
   useEventListener(player, 'statusChange', ({ status }) => {
-    if (status === 'readyToPlay') {
-      player.muted = true;
-      player.play();
-    }
+    // Muted is already set when the player is created.
+    if (status === 'readyToPlay') player.play();
     if (status === 'error') finish();
   });
 
@@ -62,7 +62,7 @@ export function IntroVideo({ onFinished }: { onFinished: () => void }) {
       clearTimeout(fallback);
       if (playTimer.current) clearTimeout(playTimer.current);
     };
-  }, [player]);
+  }, [player, finish]);
 
   return (
     <View style={styles.wrap}>

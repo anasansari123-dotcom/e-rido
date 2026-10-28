@@ -7,9 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/brand-icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#042D58"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mohdanas786.eride"
@@ -28,13 +25,23 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#042D58",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "baa99b96-fdfe-4f7e-908f-206d81c8aa27"
+        "projectId": "a9bf947c-71f8-4dcf-8c83-db04eedd029b"
       }
-    }
+    },
+    "owner": "mtuk"
   }
 }

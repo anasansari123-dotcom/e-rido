@@ -3,26 +3,17 @@ import { View } from 'react-native';
 
 import { AppText } from './ui';
 import { colors } from './theme';
-
-type MapPoint = {
-  latitude: number;
-  longitude: number;
-  title?: string;
-};
+import type { RealMapProps } from './map-types';
+export type { MapPoint } from './map-types';
 
 export function RealMap({
   current,
   pickup,
   drop,
+  selected,
   height = 180,
-}: {
-  current?: MapPoint;
-  pickup?: MapPoint;
-  drop?: MapPoint;
-  route?: MapPoint[];
-  height?: number;
-}) {
-  const focus = pickup ?? current ?? drop;
+}: RealMapProps) {
+  const focus = selected ?? pickup ?? current ?? drop;
   return (
     <View
       style={{
@@ -38,7 +29,7 @@ export function RealMap({
     >
       <Ionicons name="location" size={30} color={colors.green} />
       <AppText weight="bold" style={{ marginTop: 8 }}>
-        {pickup?.title ?? current?.title ?? 'Live location'}
+        {focus?.title ?? 'Map preview'}
       </AppText>
       <AppText size={13} color={colors.muted} center style={{ marginTop: 4 }}>
         {focus
@@ -50,6 +41,9 @@ export function RealMap({
           Drop: {drop.title}
         </AppText>
       ) : null}
+      <AppText size={12} color={colors.inkSoft} center style={{ marginTop: 8 }}>
+        Open the Android app for Google Maps and tap-to-select.
+      </AppText>
     </View>
   );
 }

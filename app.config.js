@@ -1,9 +1,8 @@
-// Restricted keys live in EAS environment variables, never in git.
+// Restricted keys live in .env.local or EAS environment variables, never in git.
 // Android key: "Android apps" restriction + Maps SDK for Android only.
 // iOS key: "iOS apps" restriction (bundle id below) + Maps SDK for iOS only.
-const androidMapsKey =
-  process.env.GOOGLE_MAPS_ANDROID_API_KEY || process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-const iosMapsKey = process.env.GOOGLE_MAPS_IOS_API_KEY;
+const androidMapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY?.trim();
+const iosMapsKey = process.env.GOOGLE_MAPS_IOS_API_KEY?.trim();
 
 module.exports = ({ config }) => {
   const plugins = [
@@ -19,13 +18,8 @@ module.exports = ({ config }) => {
   ];
 
   if (androidMapsKey || iosMapsKey) {
-    plugins.push([
-      'react-native-maps',
-      {
-        ...(androidMapsKey ? { androidGoogleMapsApiKey: androidMapsKey } : null),
-        ...(iosMapsKey ? { iosGoogleMapsApiKey: iosMapsKey } : null),
-      },
-    ]);
+    // Read keys inside the plugin so its options do not expose them in public app config.
+    plugins.push('./plugins/with-google-maps');
   }
 
   return {
@@ -33,6 +27,7 @@ module.exports = ({ config }) => {
     plugins,
     extra: {
       ...config.extra,
+      androidGoogleMaps: Boolean(androidMapsKey),
       iosGoogleMaps: Boolean(iosMapsKey),
     },
   };

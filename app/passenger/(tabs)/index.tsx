@@ -180,6 +180,26 @@ export default function PassengerHome() {
           </AppText>
         </Pressable>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open full map"
+          onPress={() => router.push('/passenger/map')}
+          style={({ pressed }) => ({
+            marginTop: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            paddingVertical: 8,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Ionicons name="map-outline" size={16} color={colors.green} />
+          <AppText size={13} weight="bold" color={colors.green}>
+            Open full map
+          </AppText>
+        </Pressable>
+
         {again.length > 0 ? (
           <>
             <SectionLabel style={{ marginTop: 24 }}>RIDE AGAIN</SectionLabel>
