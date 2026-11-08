@@ -220,11 +220,24 @@ app.get('/maps/places/:placeId', requireUser, async (req: AuthedRequest, res) =>
 type LatLng = { latitude: number; longitude: number };
 type Quote = { distanceKm: number; minutes: number; fare: number; polyline: string; source: 'route' | 'estimate' };
 
-function fareFor(distanceKm: number) {
-  return Math.max(30, Math.round(25 + distanceKm * 12));
+// Fare = ₹25 base + per-km rate (₹7 by day, ₹10 at night 10 PM–6 AM IST), minimum ₹30.
+// Keep in sync with quoteBetween in src/data.ts (the app's interim estimate).
+const baseFare = 25;
+const minimumFare = 30;
+const dayRatePerKm = 7;
+const nightRatePerKm = 10;
+
+// Render runs in UTC, so the hour is computed in India time (UTC+5:30) explicitly.
+function perKmRate(now = Date.now()) {
+  const istHour = new Date(now + 330 * 60_000).getUTCHours();
+  return istHour >= 22 || istHour < 6 ? nightRatePerKm : dayRatePerKm;
 }
 
-function straightLineQuote(from: LatLng, to: LatLng): Quote {
+function fareFor(distanceKm: number, ratePerKm: number) {
+  return Math.max(minimumFare, Math.round(baseFare + distanceKm * ratePerKm));
+}
+
+function straightLineQuote(from: LatLng, to: LatLng, ratePerKm: number): Quote {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const dLat = toRad(to.latitude - from.latitude);
   const dLng = toRad(to.longitude - from.longitude);
@@ -234,7 +247,7 @@ function straightLineQuote(from: LatLng, to: LatLng): Quote {
   const raw = 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
   const distanceKm = Math.round(Math.max(raw, 0.8) * 10) / 10;
   const minutes = Math.max(6, Math.round(distanceKm * 4 + 3));
-  return { distanceKm, minutes, fare: fareFor(distanceKm), polyline: '', source: 'estimate' };
+  return { distanceKm, minutes, fare: fareFor(distanceKm, ratePerKm), polyline: '', source: 'estimate' };
 }
 
 // The quote shown on the booking screen and the fare saved on the ride come from the same
@@ -243,11 +256,13 @@ const quoteCache = new Map<string, { quote: Quote; expires: number }>();
 const quoteTtlMs = 15 * 60_000;
 
 async function quoteBetween(from: LatLng, to: LatLng): Promise<Quote> {
-  const key = [from.latitude, from.longitude, to.latitude, to.longitude].map((value) => value.toFixed(5)).join(',');
+  const ratePerKm = perKmRate();
+  // The rate is part of the key so a day-rate quote is never reused after 10 PM (or vice versa).
+  const key = [from.latitude, from.longitude, to.latitude, to.longitude].map((value) => value.toFixed(5)).join(',') + `@${ratePerKm}`;
   const cached = quoteCache.get(key);
   if (cached && cached.expires > Date.now()) return cached.quote;
 
-  let quote = straightLineQuote(from, to);
+  let quote = straightLineQuote(from, to, ratePerKm);
   if (googleMapsServerKey) {
     try {
       // TRAFFIC_UNAWARE with distance, duration and polyline keeps this on the Essentials SKU.
@@ -280,7 +295,7 @@ async function quoteBetween(from: LatLng, to: LatLng): Promise<Quote> {
             distanceKm,
             // E-rickshaws are slower than the car estimate Google returns.
             minutes: Math.max(6, Math.round((seconds / 60) * 1.3)),
-            fare: fareFor(distanceKm),
+            fare: fareFor(distanceKm, ratePerKm),
             polyline: cleanText(route?.polyline?.encodedPolyline),
             source: 'route',
           };
