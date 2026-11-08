@@ -7,7 +7,33 @@ const port = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 3000;
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-const googleMapsServerKey = process.env.GOOGLE_MAPS_SERVER_API_KEY;
+// Server-only key (Places API (New) + Routes API). Never sent to the app or written to logs.
+const googleMapsServerKey = process.env.GOOGLE_MAPS_API_KEY?.trim() || undefined;
+const googleTimeoutMs = 8000;
+
+// Calls a Google Maps Platform endpoint with a timeout. On failure it logs only the HTTP status
+// and Google's error status/message (key redacted), so misconfiguration is visible in Render logs.
+async function callGoogle(api: string, url: string | URL, init: RequestInit): Promise<globalThis.Response | null> {
+  try {
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(googleTimeoutMs) });
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const body = (await response.clone().json()) as { error?: { status?: string; message?: string } };
+        detail = [body.error?.status, body.error?.message].filter(Boolean).join(': ');
+      } catch {
+        // Non-JSON error body; the HTTP status is enough.
+      }
+      if (googleMapsServerKey) detail = detail.split(googleMapsServerKey).join('[redacted]');
+      console.warn(`Google ${api} failed with HTTP ${response.status}${detail ? ` (${detail.slice(0, 300)})` : ''}`);
+    }
+    return response;
+  } catch (error) {
+    const reason = error instanceof Error && error.name === 'TimeoutError' ? 'timed out' : 'network error';
+    console.warn(`Google ${api} request ${reason}.`);
+    return null;
+  }
+}
 
 export const supabase: SupabaseClient | null =
   supabaseUrl && supabasePublishableKey
@@ -104,7 +130,7 @@ app.get('/maps/places', requireUser, async (req: AuthedRequest, res) => {
   const session = readSession(req.query.session);
   const center = readLatLng(req.query.lat, req.query.lng) ?? defaultCenter;
   try {
-    const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    const response = await callGoogle('Places autocomplete', 'https://places.googleapis.com/v1/places:autocomplete', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -118,7 +144,7 @@ app.get('/maps/places', requireUser, async (req: AuthedRequest, res) => {
         ...(session ? { sessionToken: session } : null),
       }),
     });
-    if (!response.ok) {
+    if (!response?.ok) {
       res.status(502).json({ error: 'Google Places search is temporarily unavailable.' });
       return;
     }
@@ -159,13 +185,13 @@ app.get('/maps/places/:placeId', requireUser, async (req: AuthedRequest, res) =>
   const url = new URL(`https://places.googleapis.com/v1/places/${placeId}`);
   if (session) url.searchParams.set('sessionToken', session);
   try {
-    const response = await fetch(url, {
+    const response = await callGoogle('Place Details', url, {
       headers: {
         'X-Goog-Api-Key': googleMapsServerKey,
         'X-Goog-FieldMask': 'id,location,shortFormattedAddress',
       },
     });
-    if (!response.ok) {
+    if (!response?.ok) {
       res.status(502).json({ error: 'Could not load that place. Try another one.' });
       return;
     }
@@ -225,7 +251,7 @@ async function quoteBetween(from: LatLng, to: LatLng): Promise<Quote> {
   if (googleMapsServerKey) {
     try {
       // TRAFFIC_UNAWARE with distance, duration and polyline keeps this on the Essentials SKU.
-      const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      const response = await callGoogle('Routes computeRoutes', 'https://routes.googleapis.com/directions/v2:computeRoutes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,7 +267,7 @@ async function quoteBetween(from: LatLng, to: LatLng): Promise<Quote> {
           units: 'METRIC',
         }),
       });
-      if (response.ok) {
+      if (response?.ok) {
         const payload = (await response.json()) as {
           routes?: { distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }[];
         };
@@ -759,7 +785,7 @@ app.listen(port, '0.0.0.0', () => {
   }
   console.log(
     googleMapsServerKey
-      ? 'Google Places server key is set.'
-      : 'Google Places is not configured. Missing: GOOGLE_MAPS_SERVER_API_KEY',
+      ? 'GOOGLE_MAPS_API_KEY is set (Places + Routes).'
+      : 'Google Maps is not configured. Missing: GOOGLE_MAPS_API_KEY (quotes fall back to straight-line estimates).',
   );
 });
