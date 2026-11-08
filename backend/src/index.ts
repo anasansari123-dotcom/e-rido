@@ -220,9 +220,9 @@ app.get('/maps/places/:placeId', requireUser, async (req: AuthedRequest, res) =>
 type LatLng = { latitude: number; longitude: number };
 type Quote = { distanceKm: number; minutes: number; fare: number; polyline: string; source: 'route' | 'estimate' };
 
-// Fare = ₹25 base + per-km rate (₹7 by day, ₹10 at night 10 PM–6 AM IST), minimum ₹30.
+// Fare = per-km rate only (₹7 by day, ₹10 at night 10 PM–6 AM IST), no base fare, minimum ₹30.
 // Keep in sync with quoteBetween in src/data.ts (the app's interim estimate).
-const baseFare = 25;
+const baseFare = 0;
 const minimumFare = 30;
 const dayRatePerKm = 7;
 const nightRatePerKm = 10;

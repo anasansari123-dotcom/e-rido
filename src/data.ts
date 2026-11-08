@@ -111,10 +111,10 @@ export function quoteBetween(pickup: Place, drop: Place) {
   const raw = kmBetween(pickup, drop);
   const distanceKm = Math.round(Math.max(raw, 0.8) * 10) / 10;
   const minutes = Math.max(6, Math.round(distanceKm * 4 + 3));
-  // Same as the backend: ₹25 base + ₹7/km by day, ₹10/km at night (10 PM–6 AM IST), minimum ₹30.
+  // Same as the backend: no base fare, ₹7/km by day, ₹10/km at night (10 PM–6 AM IST), minimum ₹30.
   const istHour = new Date(Date.now() + 330 * 60_000).getUTCHours();
   const ratePerKm = istHour >= 22 || istHour < 6 ? 10 : 7;
-  const fare = Math.max(30, Math.round(25 + distanceKm * ratePerKm));
+  const fare = Math.max(30, Math.round(distanceKm * ratePerKm));
   return { distanceKm, minutes, fare };
 }
 
